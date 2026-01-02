@@ -52,11 +52,23 @@
                 <groupId>org.pcap4j</groupId>
                 <artifactId>pcap4j-core</artifactId>
                 <version>${pcap4j.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
             <dependency>
                 <groupId>org.pcap4j</groupId>
                 <artifactId>pcap4j-packetfactory-static</artifactId>
                 <version>${pcap4j.version}</version>
+            </dependency>
+            <!-- Usar a versão mais recente do SLF4J API -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
             </dependency>
 
             <dependency>
