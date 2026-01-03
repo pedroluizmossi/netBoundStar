@@ -51,5 +51,15 @@
 - [x] **PhysicsEngine.java**: Motor O(N²) para cálculos de força.
 - [x] **Integração no Canvas**: Física executada antes de atualizações lógicas.
 
-## 🔧 Fase 7: Polimento Final
+## 🔧 Fase 7: Configurações Persistentes (Concluído)
+- [x] **AppConfig Persistente**: Salva/carrega arquivo `netboundstar.config` na pasta do usuário.
+- [x] **Campos de Física**: `repulsionForce`, `attractionForce`, `maxPhysicsSpeed` configuráveis.
+- [x] **SettingsWindow.java**: Janela flutuante com Sliders para ajuste em tempo real.
+- [x] **UI Integration**: Botão "⚙ Config" no canto superior direito da janela principal.
+- [x] **Save on Close**: Configurações salvas automaticamente ao fechar a aplicação.
+- [x] **Dynamic Physics**: PhysicsEngine lê valores do AppConfig a cada frame.
 
+## 📊 Fase 8: Estatísticas e Feedback (Próximo)
+- [ ] Adicionar overlay de texto (FPS real, Total de Pacotes, Upload/Download Speed).
+- [ ] Permitir pausar a animação (barra de espaço).
+- [ ] Criar um JAR executável final com todas as dependências.

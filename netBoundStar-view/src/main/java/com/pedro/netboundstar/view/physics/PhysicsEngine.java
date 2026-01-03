@@ -1,5 +1,6 @@
 package com.pedro.netboundstar.view.physics;
 
+import com.pedro.netboundstar.core.AppConfig;
 import com.pedro.netboundstar.view.StarNode;
 import java.util.Collection;
 
@@ -10,13 +11,11 @@ import java.util.Collection;
  * 2. Lei de Hooke (Atração): Nós são atraídos para o centro
  *
  * Resultado: Uma órbita harmoniosa sem sobreposição de texto
+ *
+ * NOTA: Os parâmetros de força são lidos dinamicamente do AppConfig,
+ * permitindo ajuste em tempo real via UI.
  */
 public class PhysicsEngine {
-
-    // CALIBRAGEM (A parte divertida: brinque com esses números depois)
-    private static final double REPULSION_FORCE = 5000.0; // Força com que nós se odeiam
-    private static final double ATTRACTION_FORCE = 0.005; // Força da gravidade do centro (elástico)
-    private static final double MAX_SPEED = 10.0;         // Limite para ninguém teletransportar
 
     /**
      * Atualiza as forças físicas e posições de todos os nós.
@@ -27,6 +26,12 @@ public class PhysicsEngine {
      * @param centerY Posição Y do centro (seu computador)
      */
     public void update(Collection<StarNode> nodes, double centerX, double centerY) {
+
+        // Lê os valores de configuração (dinâmicos)
+        AppConfig config = AppConfig.get();
+        double repulsionForce = config.getRepulsionForce();
+        double attractionForce = config.getAttractionForce();
+        double maxSpeed = config.getMaxPhysicsSpeed();
 
         // 1. REPULSÃO (Nó contra Nó)
         // Isso é O(N^2), cuidado com muitos nós (+500 pode pesar)
@@ -43,7 +48,7 @@ public class PhysicsEngine {
                 if (distSq < 1.0) distSq = 1.0;
 
                 // Força inversamente proporcional à distância (quanto mais perto, mais forte)
-                double force = REPULSION_FORCE / distSq;
+                double force = repulsionForce / distSq;
 
                 // Normaliza o vetor para ficar com magnitude 1
                 double dist = Math.sqrt(distSq);
@@ -63,14 +68,14 @@ public class PhysicsEngine {
             double dy = centerY - node.y;
 
             // Puxa suavemente para o centro (proporcional à distância - Lei de Hooke)
-            node.vx += dx * ATTRACTION_FORCE;
-            node.vy += dy * ATTRACTION_FORCE;
+            node.vx += dx * attractionForce;
+            node.vy += dy * attractionForce;
 
             // Limita a velocidade máxima (Segurança: previne teletransporte)
             double speed = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
-            if (speed > MAX_SPEED) {
-                node.vx = (node.vx / speed) * MAX_SPEED;
-                node.vy = (node.vy / speed) * MAX_SPEED;
+            if (speed > maxSpeed) {
+                node.vx = (node.vx / speed) * maxSpeed;
+                node.vy = (node.vy / speed) * maxSpeed;
             }
 
             // Aplica o movimento final
