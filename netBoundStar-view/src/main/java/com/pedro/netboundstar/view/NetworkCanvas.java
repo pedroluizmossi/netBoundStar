@@ -10,6 +10,7 @@ import com.pedro.netboundstar.view.util.StatsManager;
 import javafx.animation.AnimationTimer;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
@@ -44,6 +45,19 @@ public class NetworkCanvas extends Canvas {
     private static final long JITTER_THRESHOLD = 1_000_000; 
     private long lastProcessedFrameNanos = 0;
     private long timeAccumulator = 0;
+
+    // --- Font Caching ---
+    private static final Font FONT_NORMAL = Font.font("Consolas", FontWeight.NORMAL, 12);
+    private static final Font FONT_DEBUG = Font.font("Consolas", 11);
+    private static final Font FONT_TOOLTIP_HEADER = Font.font("Consolas", FontWeight.BOLD, 14);
+    private static final Font FONT_TOOLTIP_BODY = Font.font("Consolas", FontWeight.NORMAL, 11);
+
+    // --- Debug Throttling ---
+    private long lastDebugUpdate = 0;
+    private String debugFps = "";
+    private String debugFrame = "";
+    private String debugNodes = "";
+    private String debugQueue = "";
 
     public NetworkCanvas(double width, double height) {
         super(width, height);
@@ -90,7 +104,7 @@ public class NetworkCanvas extends Canvas {
                     if (!paused) updateState();
                     timeAccumulator -= NANOS_PER_FRAME;
                 }
-                render();
+                render(now);
             }
         }.start();
     }
@@ -156,73 +170,96 @@ public class NetworkCanvas extends Canvas {
         }
     }
 
-    private void render() {
+    private void render(long now) {
         double w = getWidth();
         double h = getHeight();
         double centerX = w / 2;
         double centerY = h / 2;
 
+        // Clear screen
+        gc.setGlobalAlpha(1.0);
         gc.setFill(Color.rgb(10, 10, 15));
         gc.fillRect(0, 0, w, h);
 
+        // 1. Draw Connections (Lines)
         gc.setLineWidth(1.0);
         for (StarNode star : stars.values()) {
             if (star.activity < 0.05) continue;
-            Color lineColor = star.getLastProtocolColor().deriveColor(0, 1, 1, Math.max(0, star.activity * 0.2));
-            gc.setStroke(lineColor);
+            
+            // Optimization: Use setGlobalAlpha instead of deriveColor to avoid allocation
+            double alpha = Math.max(0, star.activity * 0.2);
+            gc.setGlobalAlpha(alpha);
+            gc.setStroke(star.getLastProtocolColor());
             gc.strokeLine(centerX, centerY, star.x, star.y);
         }
+        gc.setGlobalAlpha(1.0); // Reset alpha
 
+        // 2. Draw Particles
         for (StarNode star : stars.values()) {
             star.drawParticles(gc, centerX, centerY);
         }
 
-        gc.setFont(Font.font("Consolas", FontWeight.NORMAL, 12));
+        // 3. Draw Nodes (Stars)
         for (StarNode star : stars.values()) {
             double opacity = Math.max(0, star.activity);
             if (opacity < 0.05) continue;
 
-            // Scale size based on unique hosts (better for clusters)
             int uniqueHosts = star.getUniqueHostCount();
             double baseSize = 6;
             double extraSize = Math.min(24, (uniqueHosts - 1) * 2.0);
             double totalSize = baseSize + extraSize;
 
+            // Frozen Ring
             if (star.isFrozen) {
+                gc.setGlobalAlpha(1.0);
                 gc.setStroke(Color.CYAN);
                 gc.setLineWidth(2);
                 gc.strokeOval(star.x - (totalSize+4)/2, star.y - (totalSize+4)/2, totalSize+4, totalSize+4);
             }
 
+            // Hover Ring
             if (star.isHovered) {
+                gc.setGlobalAlpha(1.0);
                 gc.setStroke(Color.YELLOW);
                 gc.setLineWidth(2);
                 gc.strokeOval(star.x - (totalSize+2)/2, star.y - (totalSize+2)/2, totalSize+2, totalSize+2);
             }
 
+            // Node Body or Flag
             if (star.flagImage != null && star.flagImage.getWidth() > 0) {
                 double flagSize = 16 + extraSize;
                 double halfSize = flagSize / 2;
                 double flagOpacity = Math.max(0.4, star.activity);
+                
                 gc.setGlobalAlpha(flagOpacity);
                 gc.drawImage(star.flagImage, star.x - halfSize, star.y - halfSize, flagSize, flagSize);
-                gc.setStroke(star.getLastProtocolColor().deriveColor(0, 1, 1, flagOpacity * 0.8));
+                
+                // Flag Border
+                gc.setGlobalAlpha(flagOpacity * 0.8);
+                gc.setStroke(star.getLastProtocolColor());
                 gc.setLineWidth(1.0);
                 gc.strokeRect(star.x - halfSize, star.y - halfSize, flagSize, flagSize);
-                gc.setGlobalAlpha(1.0);
             } else {
-                gc.setFill(star.getLastProtocolColor().deriveColor(0, 1, 1, opacity));
+                // Simple Dot
+                gc.setGlobalAlpha(opacity);
+                gc.setFill(star.getLastProtocolColor());
                 gc.fillOval(star.x - totalSize/2, star.y - totalSize/2, totalSize, totalSize);
             }
 
+            // Labels (Cached Images)
             if (star.activity > 0.5 || star.isHovered) {
-                gc.setFill(Color.rgb(200, 200, 200, opacity));
-                String label = star.getSmartLabel();
-                if (star.isCluster()) label += " (" + uniqueHosts + ")";
-                gc.fillText(label, star.x + totalSize/2 + 5, star.y + 4);
+                Image labelImg = star.getLabelImage();
+                if (labelImg != null) {
+                    gc.setGlobalAlpha(opacity);
+                    gc.drawImage(labelImg, star.x + totalSize/2 + 5, star.y - 5);
+                }
             }
         }
+        
+        // Reset Alpha for UI elements
+        gc.setGlobalAlpha(1.0);
 
+        // Center Core
         double currentRadius = 30 + centerHeat;
         gc.setGlobalAlpha(0.3);
         gc.setFill(Color.CYAN);
@@ -232,10 +269,19 @@ public class NetworkCanvas extends Canvas {
         gc.fillOval(centerX - 5, centerY - 5, 10, 10);
 
         if (hoveredNode != null) drawTooltip(hoveredNode);
-        if (AppConfig.get().isDebugMode()) renderDebugInfo();
+        if (AppConfig.get().isDebugMode()) renderDebugInfo(now);
     }
 
-    private void renderDebugInfo() {
+    private void renderDebugInfo(long now) {
+        // Throttle text updates to 5 times per second (every 200ms)
+        if (now - lastDebugUpdate > 200_000_000) {
+            debugFps = String.format("FPS: %.1f", smoothedFps);
+            debugFrame = String.format("Frame: %.2f ms", smoothedFrameTimeMs);
+            debugNodes = String.format("Nodes: %d", stars.size());
+            debugQueue = String.format("Queue: %d", bridge.size());
+            lastDebugUpdate = now;
+        }
+
         gc.setFill(Color.rgb(20, 25, 40, 0.8));
         gc.fillRect(10, 100, 180, 80);
         gc.setStroke(Color.LIME);
@@ -243,11 +289,11 @@ public class NetworkCanvas extends Canvas {
         gc.strokeRect(10, 100, 180, 80);
 
         gc.setFill(Color.LIME);
-        gc.setFont(Font.font("Consolas", 11));
-        gc.fillText(String.format("FPS: %.1f", smoothedFps), 20, 120);
-        gc.fillText(String.format("Frame: %.2f ms", smoothedFrameTimeMs), 20, 135);
-        gc.fillText(String.format("Nodes: %d", stars.size()), 20, 150);
-        gc.fillText(String.format("Queue: %d", bridge.size()), 20, 165);
+        gc.setFont(FONT_DEBUG); // Use cached font
+        gc.fillText(debugFps, 20, 120);
+        gc.fillText(debugFrame, 20, 135);
+        gc.fillText(debugNodes, 20, 150);
+        gc.fillText(debugQueue, 20, 165);
     }
 
     private void drawTooltip(StarNode node) {
@@ -267,10 +313,10 @@ public class NetworkCanvas extends Canvas {
 
         // Header
         gc.setFill(Color.WHITE);
-        gc.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+        gc.setFont(FONT_TOOLTIP_HEADER); // Use cached font
         gc.fillText(node.getSmartLabel(), bx + 10, by + 20);
 
-        gc.setFont(Font.font("Consolas", FontWeight.NORMAL, 11));
+        gc.setFont(FONT_TOOLTIP_BODY); // Use cached font
         gc.setFill(Color.LIGHTGRAY);
         
         int yOff = 40;

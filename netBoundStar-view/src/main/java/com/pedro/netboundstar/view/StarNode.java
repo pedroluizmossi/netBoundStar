@@ -6,6 +6,7 @@ import com.pedro.netboundstar.core.model.Protocol;
 import com.pedro.netboundstar.view.util.DnsService;
 import com.pedro.netboundstar.view.util.FlagCache;
 import com.pedro.netboundstar.view.util.GeoService;
+import com.pedro.netboundstar.view.util.TextImageFactory;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
@@ -41,6 +42,11 @@ public class StarNode {
 
     private Color lastProtocolColor = Color.WHITE;
     public Image flagImage = null;
+    
+    // --- Text Caching ---
+    private Image cachedLabelImage = null;
+    private String lastLabelText = "";
+
     private final List<PacketParticle> particles = new ArrayList<>();
     private static final Random random = new Random();
 
@@ -70,6 +76,23 @@ public class StarNode {
             return "Cluster: " + countryCode;
         }
         return displayName;
+    }
+    
+    /**
+     * Returns a cached image of the label to avoid expensive text rendering every frame.
+     */
+    public Image getLabelImage() {
+        String currentText = getSmartLabel();
+        if (isCluster()) {
+            currentText += " (" + getUniqueHostCount() + ")";
+        }
+        
+        // If text changed or cache is empty, recreate
+        if (cachedLabelImage == null || !currentText.equals(lastLabelText)) {
+            cachedLabelImage = TextImageFactory.create(currentText);
+            lastLabelText = currentText;
+        }
+        return cachedLabelImage;
     }
 
     public boolean isCluster() {
