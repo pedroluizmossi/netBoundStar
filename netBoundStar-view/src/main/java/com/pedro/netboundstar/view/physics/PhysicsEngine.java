@@ -17,10 +17,20 @@ public class PhysicsEngine {
      */
     private static final double REPULSION_THRESHOLD_SQ = 400 * 400;
     
+    /**
+     * Solid radius around the center that nodes cannot enter.
+     * This should roughly match the rendered center visuals.
+     */
+    private static final double CENTER_SOLID_RADIUS = 30; // base visual radius in NetworkCanvas
+
     // Reusable list to avoid allocating a new ArrayList/Array every frame
     private final ArrayList<StarNode> nodeList = new ArrayList<>(1000);
 
     public void update(Collection<StarNode> nodes, double centerX, double centerY) {
+        update(nodes, centerX, centerY, CENTER_SOLID_RADIUS);
+    }
+
+    public void update(Collection<StarNode> nodes, double centerX, double centerY, double centerSolidRadius) {
         AppConfig config = AppConfig.get();
         double repulsionForce = config.getRepulsionForce();
         double attractionForce = config.getAttractionForce();
@@ -29,44 +39,34 @@ public class PhysicsEngine {
         // 1. Refresh the working list (Reuse memory)
         nodeList.clear();
         nodeList.addAll(nodes);
-        
+
         int size = nodeList.size();
 
-        // 2. OPTIMIZED REPULSION (Newton's 3rd Law: Action = -Reaction)
-        // Instead of checking A->B and then B->A (N^2), we check pairs once (N^2 / 2).
+        // 2. OPTIMIZED REPULSION
         for (int i = 0; i < size; i++) {
             StarNode nodeA = nodeList.get(i);
-            
-            // Inner loop starts at i + 1 to avoid duplicate checks and self-check
             for (int j = i + 1; j < size; j++) {
                 StarNode nodeB = nodeList.get(j);
 
                 double dx = nodeA.x - nodeB.x;
                 double dy = nodeA.y - nodeB.y;
-                
-                // Optimization: Quick bounding box check before expensive multiply
                 if (Math.abs(dx) > 400 || Math.abs(dy) > 400) continue;
 
                 double distSq = dx * dx + dy * dy;
-
-                // Optimization: Skip if nodes are too far apart
                 if (distSq > REPULSION_THRESHOLD_SQ) continue;
-
                 if (distSq < 1.0) distSq = 1.0;
 
                 double force = repulsionForce / distSq;
                 double dist = Math.sqrt(distSq);
-                
+
                 double fx = (dx / dist) * force;
                 double fy = (dy / dist) * force;
-                
-                // Apply force to A (Push away from B)
+
                 if (!nodeA.isFrozen) {
                     nodeA.vx += fx;
                     nodeA.vy += fy;
                 }
-                
-                // Apply INVERSE force to B (Push away from A)
+
                 if (!nodeB.isFrozen) {
                     nodeB.vx -= fx;
                     nodeB.vy -= fy;
@@ -74,7 +74,10 @@ public class PhysicsEngine {
             }
         }
 
-        // 3. ATTRACTION AND MOVEMENT
+        // 3. ATTRACTION AND MOVEMENT + COLLISION
+        double minDist = Math.max(0, centerSolidRadius);
+        double minDistSq = minDist * minDist;
+
         for (int i = 0; i < size; i++) {
             StarNode node = nodeList.get(i);
 
@@ -98,6 +101,29 @@ public class PhysicsEngine {
             }
 
             node.applyPhysics();
+
+            // CENTER COLLISION
+            double cx = node.x - centerX;
+            double cy = node.y - centerY;
+            double distSq = cx * cx + cy * cy;
+
+            if (distSq < minDistSq) {
+                double dist = Math.sqrt(Math.max(distSq, 0.0001));
+                double nx = cx / dist;
+                double ny = cy / dist;
+
+                node.x = centerX + nx * minDist;
+                node.y = centerY + ny * minDist;
+
+                double vDotN = node.vx * nx + node.vy * ny;
+                if (vDotN < 0) {
+                    node.vx -= vDotN * nx;
+                    node.vy -= vDotN * ny;
+                }
+
+                node.vx *= 0.85;
+                node.vy *= 0.85;
+            }
         }
     }
 }

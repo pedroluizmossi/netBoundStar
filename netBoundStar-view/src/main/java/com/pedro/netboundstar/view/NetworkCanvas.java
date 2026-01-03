@@ -62,6 +62,15 @@ public class NetworkCanvas extends Canvas {
     // --- Performance Monitoring ---
     private long processedEventsPerFrame = 0;
 
+    // Center "PC" marker size
+    private static final double CENTER_DOT_RADIUS = 30; // was 5 (10x10). Now 20x20.
+
+    /**
+     * Base radius of the cyan center glow (without heat).
+     * Must stay in sync with the collision radius in PhysicsEngine.
+     */
+    private static final double CENTER_CORE_BASE_RADIUS = 35;
+
     public NetworkCanvas(double width, double height) {
         super(width, height);
         this.gc = this.getGraphicsContext2D();
@@ -174,7 +183,7 @@ public class NetworkCanvas extends Canvas {
 
         stats.tick();
         centerHeat *= config.getCenterHeatDecay();
-        physics.update(stars.values(), centerX, centerY);
+        physics.update(stars.values(), centerX, centerY, CENTER_CORE_BASE_RADIUS + centerHeat);
 
         hoveredNode = null;
         for (StarNode node : stars.values()) {
@@ -279,13 +288,14 @@ public class NetworkCanvas extends Canvas {
         gc.setGlobalAlpha(1.0);
 
         // Center Core
-        double currentRadius = 30 + centerHeat;
+        double currentRadius = CENTER_CORE_BASE_RADIUS + centerHeat;
         gc.setGlobalAlpha(0.3);
         gc.setFill(Color.CYAN);
         gc.fillOval(centerX - currentRadius, centerY - currentRadius, currentRadius * 2, currentRadius * 2);
         gc.setGlobalAlpha(1.0);
         gc.setFill(Color.WHITE);
-        gc.fillOval(centerX - 5, centerY - 5, 10, 10);
+        gc.fillOval(centerX - CENTER_DOT_RADIUS, centerY - CENTER_DOT_RADIUS,
+                CENTER_DOT_RADIUS * 2, CENTER_DOT_RADIUS * 2);
 
         if (hoveredNode != null) drawTooltip(hoveredNode);
         if (AppConfig.get().isDebugMode()) renderDebugInfo(now);
