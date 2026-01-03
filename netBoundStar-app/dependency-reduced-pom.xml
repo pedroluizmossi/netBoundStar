@@ -17,8 +17,11 @@
         <configuration>
           <mainClass>com.pedro.netboundstar.app.Main</mainClass>
           <arguments>
-            <argument>-XX:+UseZGC</argument>
-            <argument>-XX:+ZGenerational</argument>
+            <argument>-Xms48m</argument>
+            <argument>-Xmx128m</argument>
+            <argument>-XX:+UseSerialGC</argument>
+            <argument>-XX:+TieredCompilation</argument>
+            <argument>-XX:TieredStopAtLevel=1</argument>
           </arguments>
         </configuration>
       </plugin>

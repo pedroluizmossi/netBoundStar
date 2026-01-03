@@ -29,7 +29,7 @@ Most network libraries instantiate heavy objects (`IPv4Packet`, `TcpPacket`) for
 
 ### 3. Object Pooling & Memory Management
 *   **Event Reuse:** `PacketEvent` objects within the Ring Buffer are allocated only during initialization and reused indefinitely.
-*   **Generational ZGC:** The application is tuned to run with ZGC (`-XX:+UseZGC`), ideal for managing high allocation rates of temporary byte arrays with sub-millisecond pauses.
+*   **Serial GC with Memory Constraints:** The application is optimized for low memory footprint with Serial GC, using minimal heap space (48MB-128MB) and tiered compilation limited to level 1 for faster startup.
 
 ### 4. High-Frequency JavaFX Rendering
 *   **Bitmap Caching:** Text elements (IPs, Labels) are rendered to images (`WriteableImage`) once and cached. This avoids expensive glyph layout recalculations and font rasterization in every frame (60 FPS).
@@ -109,7 +109,7 @@ flowchart TD
 ##  Requirements & Installation
 
 ### Prerequisites
-*   **Java 21 LTS** (Required for Virtual Threads and Generational ZGC support).
+*   **Java 21 LTS** (Required for Virtual Threads and optimized Serial GC support).
 *   **Maven 3.8+**.
 *   **Libpcap/Npcap**:
     *   *Linux:* `sudo apt install libpcap-dev`
@@ -143,13 +143,21 @@ This command:
 ```bash
 # From the project root directory (after mvn clean package)
 cd netBoundStar-app/target
-sudo java -XX:+UseZGC -XX:+ZGenerational -jar netBoundStar-app-1.0.0-SNAPSHOT.jar
+sudo java -Xms48m -Xmx128m \
+     -XX:+UseSerialGC \
+     -XX:+TieredCompilation \
+     -XX:TieredStopAtLevel=1 \
+     -jar netBoundStar-app-1.0.0-SNAPSHOT.jar
 ```
 
 **Windows (Run as Administrator):**
 ```cmd
 cd netBoundStar-app\target
-java -XX:+UseZGC -XX:+ZGenerational -jar netBoundStar-app-1.0.0-SNAPSHOT.jar
+java -Xms48m -Xmx128m ^
+     -XX:+UseSerialGC ^
+     -XX:+TieredCompilation ^
+     -XX:TieredStopAtLevel=1 ^
+     -jar netBoundStar-app-1.0.0-SNAPSHOT.jar
 ```
 
 #### Alternative: Using Maven Directly
@@ -169,8 +177,11 @@ The following JVM flags are recommended for optimal NetBoundStar performance:
 
 | Flag | Purpose |
 | :--- | :--- |
-| `-XX:+UseZGC` | Enables the ZGC garbage collector (low-latency, optimized for high throughput) |
-| `-XX:+ZGenerational` | Activates generational mode for ZGC (reduces pause times further) |
+| `-Xms48m` | Sets minimum heap size to 48MB for faster startup |
+| `-Xmx128m` | Sets maximum heap size to 128MB for memory efficiency |
+| `-XX:+UseSerialGC` | Enables Serial GC for low memory footprint and fast startup |
+| `-XX:+TieredCompilation` | Enables tiered compilation for better performance |
+| `-XX:TieredStopAtLevel=1` | Limits compilation to level 1 for faster startup |
 | `-XX:+UseStringDeduplication` | Reduces memory usage for duplicate strings (optional) |
 | `-Dprism.order=d3d,es2` | (Windows) Prioritizes Direct3D for graphics rendering |
 | `-Djavafx.animation.fullspeed=true` | Runs animation loop at maximum frequency (60 FPS) |
@@ -188,7 +199,6 @@ The `.netboundstar.config` configuration file is automatically generated in the 
 | `physics.repulsion` | Repulsion force between nodes (prevents overlap). |
 | `star.life` | Time in seconds a node remains visible without active traffic. |
 
----
 
 
 ## License
