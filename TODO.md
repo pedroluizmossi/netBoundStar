@@ -71,12 +71,26 @@
 - [x] **Tooltip Detalhado**: Exibe host, IP, portas, status e total de dados.
 - [x] **Formatação de Bytes**: Converte bytes em KB/MB/GB legível.
 
-## 🌍 Fase 9: Geolocalização & Bandeiras (Em Progresso)
+## 🌍 Fase 9: Geolocalização & Bandeiras (Concluído)
 - [x] **MaxMind GeoIP2**: Dependência Maven adicionada.
-- [x] **FlagCache.java**: Cache em memória de imagens de bandeiras.
+- [x] **FlagCache.java**: Cache em memória de imagens de bandeiras (PNG).
 - [x] **GeoService.java**: Resolução assíncrona de IP → País (ISO Code).
 - [x] **StarNode Geo**: Integração com geolocalização.
-- [x] **NetworkCanvas Flags**: Renderização de bandeiras no lugar de bolinhas brancas.
-- [ ] **Manual Setup**: Usuário deve baixar GeoLite2-Country.mmdb e flag icons.
+- [x] **NetworkCanvas Flags**: Renderização de bandeiras arredondadas no lugar de bolinhas brancas.
+- [x] **Suporte PNG**: JavaFX não suporta SVG, apenas PNG funciona.
 
-## 📊 Fase 10: Estatísticas em Tempo Real (Próximo)
+## 📊 Fase 10: Estatísticas em Tempo Real (Concluído)
+- [x] **StatsManager.java**: Classe dedicada para cálculo de estatísticas.
+- [x] **Velocímetro**: Download/Upload em tempo real (Bytes/s).
+- [x] **Totais de Sessão**: Total baixado/enviado.
+- [x] **Contagem de Protocolos**: Distribuição TCP/UDP/ICMP.
+- [x] **Histórico de Tráfego**: LinkedList com últimos 100 pontos.
+- [x] **Dashboard Inferior**: Painel semi-transparente com velocidades e gráfico.
+- [x] **Gráfico de Linhas**: Estilo "Monitor de Sistema" com escala automática.
+- [x] **HUD Superior**: Conexões ativas e total de pacotes.
+
+## 🔧 Fase 11: Polimento Final (Próximo)
+- [ ] Criar JAR executável final com todas as dependências.
+- [ ] Permitir pausar a animação (barra de espaço).
+- [ ] Adicionar FPS real no HUD.
+- [ ] Melhorar performance para grandes volumes de tráfego.

@@ -4,6 +4,7 @@ import com.pedro.netboundstar.core.AppConfig;
 import com.pedro.netboundstar.core.bus.TrafficBridge;
 import com.pedro.netboundstar.core.model.PacketEvent;
 import com.pedro.netboundstar.view.physics.PhysicsEngine;
+import com.pedro.netboundstar.view.util.StatsManager;
 import javafx.animation.AnimationTimer;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -31,6 +32,9 @@ public class NetworkCanvas extends Canvas {
     private double mouseX = -1000;
     private double mouseY = -1000;
     private StarNode hoveredNode = null;
+
+    // Gerenciador de Estatísticas de Tráfego
+    private final StatsManager stats = new StatsManager();
 
     public NetworkCanvas(double width, double height) {
         super(width, height);
@@ -98,9 +102,15 @@ public class NetworkCanvas extends Canvas {
                 stars.put(remoteIp, node);
             }
 
+            // Alimenta estatísticas de tráfego
+            stats.process(event, inbound);
+
             // Passamos o evento inteiro para extrair todas as informações
             node.pulse(event, inbound);
         }
+
+        // Atualiza relógio de velocidade (calcula velocidade a cada segundo)
+        stats.tick();
 
         // Efeito elástico do centro: ele tenta voltar para o tamanho original (0)
         // Usa taxa configurável do AppConfig
@@ -174,16 +184,34 @@ public class NetworkCanvas extends Canvas {
             }
 
             // DESENHO DO NÓ - Com suporte a bandeiras (GEO)
-            if (star.flagImage != null) {
-                // Se tem bandeira, desenha a imagem
-                double size = 16; // Tamanho em pixels na tela
-                gc.setGlobalAlpha(Math.max(0.3, star.activity)); // Opacidade baseada na atividade
-                gc.drawImage(star.flagImage, star.x - size/2, star.y - size/2, size, size);
-                gc.setGlobalAlpha(1.0); // Reseta opacidade
+            if (star.flagImage != null && star.flagImage.getWidth() > 0) {
+                // Se tem bandeira, desenha a imagem com formato circular
+                double size = 20; // Tamanho em pixels na tela
+                double halfSize = size / 2;
+                double flagOpacity = Math.max(0.4, star.activity);
+
+                gc.save(); // Salva o estado atual
+                gc.setGlobalAlpha(flagOpacity);
+
+                // Cria clipping circular para fazer a bandeira arredondada
+                gc.beginPath();
+                gc.arc(star.x, star.y, halfSize, halfSize, 0, 360);
+                gc.closePath();
+                gc.clip();
+
+                // Desenha a imagem (será cortada pelo clip circular)
+                gc.drawImage(star.flagImage, star.x - halfSize, star.y - halfSize, size, size);
+
+                gc.restore(); // Restaura o estado (remove o clip)
+
+                // Opcional: Adiciona borda circular ao redor da bandeira
+                gc.setStroke(Color.rgb(255, 255, 255, flagOpacity * 0.5));
+                gc.setLineWidth(1);
+                gc.strokeOval(star.x - halfSize, star.y - halfSize, size, size);
             } else {
                 // Fallback: Desenha a bolinha branca antiga
                 gc.setFill(Color.rgb(255, 255, 255, opacity));
-                gc.fillOval(star.x - 3, star.y - 3, 6, 6);
+                gc.fillOval(star.x - 4, star.y - 4, 8, 8);
             }
 
             // Desenha o IP ou Hostname apenas se a estrela estiver "viva" o suficiente (> 0.2 de atividade)
@@ -208,15 +236,115 @@ public class NetworkCanvas extends Canvas {
         double coreRadius = 5 + (centerHeat * 0.2);
         gc.fillOval(centerX - coreRadius, centerY - coreRadius, coreRadius * 2, coreRadius * 2);
 
-        // HUD
+        // HUD Superior
         gc.setFill(Color.LIME);
         gc.setFont(new Font("Consolas", 14));
-        gc.fillText("Conexões Ativas: " + stars.size(), 20, 30);
+        gc.fillText("Conexões Ativas: " + stars.size() + " | Pacotes: " + stats.getTotalPackets(), 20, 30);
+
+        // Dashboard inferior com estatísticas
+        drawDashboard();
 
         // TOOLTIP (Renderizado por cima de tudo)
         if (hoveredNode != null) {
             drawTooltip(hoveredNode);
         }
+    }
+
+    // --- Dashboard de Estatísticas ---
+    private void drawDashboard() {
+        double w = getWidth();
+        double h = getHeight();
+        double hudHeight = 100;
+        double yStart = h - hudHeight;
+
+        // 1. Fundo do Painel (Vidro escuro)
+        gc.setFill(Color.rgb(10, 15, 20, 0.85));
+        gc.fillRect(0, yStart, w, hudHeight);
+
+        // Linha de separação neon
+        gc.setStroke(Color.rgb(0, 255, 255, 0.5));
+        gc.setLineWidth(1);
+        gc.strokeLine(0, yStart, w, yStart);
+
+        // 2. Velocímetros (Texto Esquerda)
+        gc.setFont(new Font("Consolas", 14));
+
+        // Download (Ciano)
+        gc.setFill(Color.CYAN);
+        gc.fillText("▼ DOWNLOAD", 20, yStart + 25);
+        gc.setFont(new Font("Consolas", 22));
+        gc.fillText(formatSpeed(stats.getDownSpeed()), 20, yStart + 50);
+
+        // Upload (Laranja)
+        gc.setFont(new Font("Consolas", 14));
+        gc.setFill(Color.ORANGE);
+        gc.fillText("▲ UPLOAD", 180, yStart + 25);
+        gc.setFont(new Font("Consolas", 22));
+        gc.fillText(formatSpeed(stats.getUpSpeed()), 180, yStart + 50);
+
+        // Totais (Texto Pequeno abaixo)
+        gc.setFont(new Font("Consolas", 11));
+        gc.setFill(Color.GRAY);
+        gc.fillText("Total: " + formatBytes(stats.getTotalBytesDown()), 20, yStart + 75);
+        gc.fillText("Total: " + formatBytes(stats.getTotalBytesUp()), 180, yStart + 75);
+
+        // 3. Gráfico de Histórico (Direita)
+        drawGraph(350, yStart + 10, w - 370, hudHeight - 20);
+    }
+
+    private void drawGraph(double x, double y, double w, double h) {
+        // Fundo do gráfico
+        gc.setFill(Color.rgb(0, 0, 0, 0.3));
+        gc.fillRect(x, y, w, h);
+        gc.setStroke(Color.rgb(50, 50, 50));
+        gc.strokeRect(x, y, w, h);
+
+        var history = stats.getHistory();
+        if (history.size() < 2) return;
+
+        // Encontrar o pico para escalar o gráfico (Y-Axis automático)
+        long maxVal = 1;
+        for (long[] point : history) {
+            maxVal = Math.max(maxVal, Math.max(point[0], point[1]));
+        }
+
+        double stepX = w / (double) (history.size() - 1);
+
+        // Desenha Linha de Download (Ciano)
+        gc.setStroke(Color.CYAN);
+        gc.setLineWidth(2);
+        gc.beginPath();
+        for (int i = 0; i < history.size(); i++) {
+            double val = history.get(i)[0];
+            double px = x + (i * stepX);
+            double py = y + h - ((val / (double) maxVal) * h);
+            if (i == 0) gc.moveTo(px, py);
+            else gc.lineTo(px, py);
+        }
+        gc.stroke();
+
+        // Desenha Linha de Upload (Laranja)
+        gc.setStroke(Color.ORANGE);
+        gc.setLineWidth(1.5);
+        gc.beginPath();
+        for (int i = 0; i < history.size(); i++) {
+            double val = history.get(i)[1];
+            double px = x + (i * stepX);
+            double py = y + h - ((val / (double) maxVal) * h);
+            if (i == 0) gc.moveTo(px, py);
+            else gc.lineTo(px, py);
+        }
+        gc.stroke();
+
+        // Escala (valor máximo)
+        gc.setFill(Color.GRAY);
+        gc.setFont(new Font("Consolas", 9));
+        gc.fillText(formatBytes(maxVal) + "/s", x + 5, y + 12);
+    }
+
+    // Utilitário para formatar velocidade (ex: 1.2 MB/s)
+    private String formatSpeed(long bytesPerSec) {
+        return formatBytes(bytesPerSec) + "/s";
     }
 
     // Método auxiliar para formatar bytes em formato legível
