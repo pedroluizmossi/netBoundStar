@@ -1,7 +1,3 @@
-This is the translated and polished version of your `README.md` in English, maintaining the high-level technical tone and structural integrity.
-
----
-
 # NetBoundStar
 
 > **High-Performance Real-Time Network Telemetry Visualization**
