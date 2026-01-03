@@ -3,30 +3,37 @@ package com.pedro.netboundstar.core.model;
 import java.time.Instant;
 
 /**
- * Represents a single captured packet, simplified for visualization.
- *
- * @param sourceIp The source IP address.
- * @param sourcePort The source port.
- * @param targetIp The destination IP address.
- * @param targetPort The destination port.
- * @param protocol The protocol type (used for color coding).
- * @param payloadSize The size of the payload in bytes (used for brightness/size).
- * @param timestamp The exact moment of capture (used for synchronization).
+ * Mutable PacketEvent designed for Object Pooling.
+ * Replaces the immutable record to avoid GC churn.
  */
-public record PacketEvent(
-    String sourceIp,
-    int sourcePort,
-    String targetIp,
-    int targetPort,
-    Protocol protocol,
-    int payloadSize,
-    Instant timestamp
-) {
-    /**
-     * Compact constructor for validation.
-     */
-    public PacketEvent {
-        if (payloadSize < 0) payloadSize = 0;
-        if (timestamp == null) timestamp = Instant.now();
+public class PacketEvent {
+    private String sourceIp;
+    private int sourcePort;
+    private String targetIp;
+    private int targetPort;
+    private Protocol protocol;
+    private int payloadSize;
+    private long timestamp; // Using primitive long for performance (System.nanoTime or epoch)
+
+    public PacketEvent() {
+        // Pre-allocate empty
     }
+
+    public void set(String sourceIp, int sourcePort, String targetIp, int targetPort, Protocol protocol, int payloadSize) {
+        this.sourceIp = sourceIp;
+        this.sourcePort = sourcePort;
+        this.targetIp = targetIp;
+        this.targetPort = targetPort;
+        this.protocol = protocol;
+        this.payloadSize = payloadSize;
+        this.timestamp = System.currentTimeMillis();
+    }
+
+    public String sourceIp() { return sourceIp; }
+    public int sourcePort() { return sourcePort; }
+    public String targetIp() { return targetIp; }
+    public int targetPort() { return targetPort; }
+    public Protocol protocol() { return protocol; }
+    public int payloadSize() { return payloadSize; }
+    public long timestamp() { return timestamp; }
 }
