@@ -32,20 +32,21 @@ public class PhysicsEngine {
         
         int size = nodeList.size();
 
-        // 2. OPTIMIZED REPULSION (Single Threaded for Zero-Allocation)
-        // Parallel streams allocate objects (Tasks, Spliterators). 
-        // For < 2000 nodes, a raw loop is often faster and generates 0 garbage.
+        // 2. OPTIMIZED REPULSION (Newton's 3rd Law: Action = -Reaction)
+        // Instead of checking A->B and then B->A (N^2), we check pairs once (N^2 / 2).
         for (int i = 0; i < size; i++) {
             StarNode nodeA = nodeList.get(i);
-            if (nodeA.isFrozen) continue;
-
-            for (int j = 0; j < size; j++) {
-                if (i == j) continue; // Skip self
-
+            
+            // Inner loop starts at i + 1 to avoid duplicate checks and self-check
+            for (int j = i + 1; j < size; j++) {
                 StarNode nodeB = nodeList.get(j);
 
                 double dx = nodeA.x - nodeB.x;
                 double dy = nodeA.y - nodeB.y;
+                
+                // Optimization: Quick bounding box check before expensive multiply
+                if (Math.abs(dx) > 400 || Math.abs(dy) > 400) continue;
+
                 double distSq = dx * dx + dy * dy;
 
                 // Optimization: Skip if nodes are too far apart
@@ -56,8 +57,20 @@ public class PhysicsEngine {
                 double force = repulsionForce / distSq;
                 double dist = Math.sqrt(distSq);
                 
-                nodeA.vx += (dx / dist) * force;
-                nodeA.vy += (dy / dist) * force;
+                double fx = (dx / dist) * force;
+                double fy = (dy / dist) * force;
+                
+                // Apply force to A (Push away from B)
+                if (!nodeA.isFrozen) {
+                    nodeA.vx += fx;
+                    nodeA.vy += fy;
+                }
+                
+                // Apply INVERSE force to B (Push away from A)
+                if (!nodeB.isFrozen) {
+                    nodeB.vx -= fx;
+                    nodeB.vy -= fy;
+                }
             }
         }
 

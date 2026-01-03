@@ -1,6 +1,6 @@
 # NetBoundStar
 
-NetBoundStar is a real-time network telemetry visualization tool. It transforms network traffic into an interactive visual experience based on a star constellation metaphor, where each connection is a star and each packet is a particle of energy.
+NetBoundStar is a high-performance, real-time network telemetry visualization tool. It transforms network traffic into an interactive visual experience based on a star constellation metaphor, where each connection is a star and each packet is a particle of energy.
 
 Unlike traditional packet analyzers that present data in tabular formats, NetBoundStar uses a physics engine to organize network nodes dynamically, providing an intuitive view of traffic density, direction, and origin.
 
@@ -14,26 +14,46 @@ Unlike traditional packet analyzers that present data in tabular formats, NetBou
   - Dominant protocol distribution (TCP/UDP).
   - Data transfer totals and active ports.
 - **Geolocation & DNS**: Automatically resolves IP addresses to hostnames and identifies the country of origin, displaying national flags.
-- **High Performance**: Built on Java 21 using Virtual Threads for asynchronous I/O operations (DNS, GeoIP) without blocking the rendering loop.
 - **Customizable**: Adjust physics parameters, star lifespan, clustering modes, and visual effects in real-time via the settings menu.
+
+## Performance Engineering
+
+NetBoundStar is engineered to handle Gigabit network speeds without GC pauses or UI stuttering. Key optimizations include:
+
+### 1. Zero-Allocation Architecture
+- **Object Pooling**: `PacketEvent` objects are pre-allocated at startup and reused indefinitely.
+- **Raw Byte Parsing**: The sniffer parses raw Ethernet frames manually using bitwise operations, avoiding the creation of heavy Pcap4j wrapper objects (IpV4Packet, TcpPacket).
+- **Truncated Capture**: `SNAPLEN` is set to 128 bytes to minimize native-to-Java memory copying, while `getOriginalLength()` ensures traffic stats remain accurate.
+
+### 2. Ring Buffer & Backpressure
+- **LMAX-style Ring Buffer**: Replaces standard queues with a fixed-size circular buffer (16,384 slots) using `AtomicLong` cursors.
+- **Drop-on-Full Strategy**: If the UI cannot keep up with the network (e.g., during a massive download), packets are dropped silently to prevent `OutOfMemoryError` and preserve application stability.
+
+### 3. JavaFX Rendering Optimizations
+- **Bitmap Caching**: Text labels are rendered to images once and cached, avoiding expensive `GlyphLayout` and `BidiBase` calculations on every frame.
+- **State Management**: Replaces `deriveColor()` allocations with `gc.setGlobalAlpha()`, reusing static Color instances.
+- **Indexed Loops**: Critical paths use indexed `for` loops instead of Iterators to eliminate `ArrayList$Itr` allocation.
+
+### 4. Garbage Collection
+- Tuned for **ZGC Generational** (Java 21+) to handle high allocation rates of short-lived byte arrays with sub-millisecond pauses.
 
 ## Architecture
 
 The project follows a modular monolith architecture to ensure separation of concerns:
 
-- **netBoundStar-core**: The domain layer containing shared models (PacketEvent, Protocol), the event bus (TrafficBridge), and configuration management. It has no external runtime dependencies.
-- **netBoundStar-engine**: The packet capture layer. It uses Pcap4j to sniff network traffic, filter IPv4 packets, and publish events to the core bridge.
-- **netBoundStar-view**: The presentation layer built with JavaFX. It handles the rendering loop, particle system, physics engine, and UI components.
-- **netBoundStar-app**: The application entry point. It orchestrates the startup process, initializing the background sniffer thread and launching the graphical interface.
+- **netBoundStar-core**: Domain layer containing shared models and the Ring Buffer implementation. No external runtime dependencies.
+- **netBoundStar-engine**: Packet capture layer. Uses Pcap4j with BPF filters (`ip`) to sniff traffic efficiently.
+- **netBoundStar-view**: Presentation layer built with JavaFX. Handles the rendering loop, particle system, and physics engine.
+- **netBoundStar-app**: Application entry point. Orchestrates startup and JVM tuning.
 
 ## Requirements
 
 - **Java 21** (LTS) or higher.
 - **Maven** 3.8 or higher.
 - **Packet Capture Library**:
-    - **Linux**: `libpcap-dev` (Run with `sudo` to access network devices).
+    - **Linux**: `libpcap-dev` (Run with `sudo` or `setcap`).
     - **Windows**: [Npcap](https://npcap.com/) (Install with "WinPcap API-compatible Mode").
-    - **macOS**: `libpcap` (Pre-installed, may require permissions).
+    - **macOS**: `libpcap` (Pre-installed).
 
 ## Installation and Running
 
@@ -51,8 +71,9 @@ The project follows a modular monolith architecture to ensure separation of conc
 3. **Run the application**:
 
    **Linux / macOS**:
-   Network capture requires root privileges to access the network interface in promiscuous mode.
+   Network capture requires root privileges or `CAP_NET_RAW` capability.
    ```bash
+   # Recommended: Run with ZGC for best performance
    sudo mvn exec:java -Dexec.mainClass="com.pedro.netboundstar.app.Main" -pl netBoundStar-app
    ```
 
