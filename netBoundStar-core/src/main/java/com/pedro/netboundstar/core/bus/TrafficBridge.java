@@ -15,8 +15,9 @@ public class TrafficBridge {
 
     private static final TrafficBridge INSTANCE = new TrafficBridge();
     
-    // Buffer Size must be a power of 2 for bitwise optimization
-    private static final int BUFFER_SIZE = 16384; 
+    // Increased Buffer Size to 131072 (2^17) to handle high-throughput bursts without dropping packets.
+    // This helps maintain accurate stats even when the UI thread is busy.
+    private static final int BUFFER_SIZE = 131072;
     private static final int MASK = BUFFER_SIZE - 1;
 
     private final PacketEvent[] buffer;

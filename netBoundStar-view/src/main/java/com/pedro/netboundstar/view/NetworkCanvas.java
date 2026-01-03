@@ -58,6 +58,9 @@ public class NetworkCanvas extends Canvas {
     private String debugFrame = "";
     private String debugNodes = "";
     private String debugQueue = "";
+    
+    // --- Performance Monitoring ---
+    private long processedEventsPerFrame = 0;
 
     public NetworkCanvas(double width, double height) {
         super(width, height);
@@ -100,6 +103,12 @@ public class NetworkCanvas extends Canvas {
 
                 lastProcessedFrameNanos = now;
                 timeAccumulator += elapsedNanos;
+                
+                // Safety cap: Don't accumulate more than 3 frames to avoid spiral of death
+                if (timeAccumulator > NANOS_PER_FRAME * 3) {
+                    timeAccumulator = NANOS_PER_FRAME;
+                }
+
                 while (timeAccumulator >= NANOS_PER_FRAME) {
                     if (!paused) updateState();
                     timeAccumulator -= NANOS_PER_FRAME;
@@ -125,7 +134,15 @@ public class NetworkCanvas extends Canvas {
         AppConfig config = AppConfig.get();
 
         PacketEvent event;
+        processedEventsPerFrame = 0;
+        
+        // Time Budget: 8ms max for event processing to leave time for physics and render
+        long startTime = System.nanoTime();
+        long maxTime = 8_000_000; // 8ms
+
         while ((event = bridge.poll()) != null) {
+            processedEventsPerFrame++;
+            
             centerHeat = Math.min(centerHeat + config.getCenterHeatIncrement(), config.getCenterHeatMax());
             boolean inbound = isInbound(event.sourceIp());
             String remoteIp = inbound ? event.sourceIp() : event.targetIp();
@@ -145,7 +162,14 @@ public class NetworkCanvas extends Canvas {
             }
             
             stats.process(event, inbound);
-            node.pulse(event, inbound);
+            
+            // If we are running out of time, skip visual effects (particles) but keep stats
+            boolean skipVisuals = (System.nanoTime() - startTime) > maxTime;
+            node.pulse(event, inbound, !skipVisuals);
+        }
+        
+        if (processedEventsPerFrame > 1000) {
+            System.out.println("[Lag Warning] Processed " + processedEventsPerFrame + " events in one frame.");
         }
 
         stats.tick();
@@ -209,23 +233,18 @@ public class NetworkCanvas extends Canvas {
             double extraSize = Math.min(24, (uniqueHosts - 1) * 2.0);
             double totalSize = baseSize + extraSize;
 
-            // Frozen Ring
             if (star.isFrozen) {
-                gc.setGlobalAlpha(1.0);
                 gc.setStroke(Color.CYAN);
                 gc.setLineWidth(2);
                 gc.strokeOval(star.x - (totalSize+4)/2, star.y - (totalSize+4)/2, totalSize+4, totalSize+4);
             }
 
-            // Hover Ring
             if (star.isHovered) {
-                gc.setGlobalAlpha(1.0);
                 gc.setStroke(Color.YELLOW);
                 gc.setLineWidth(2);
                 gc.strokeOval(star.x - (totalSize+2)/2, star.y - (totalSize+2)/2, totalSize+2, totalSize+2);
             }
 
-            // Node Body or Flag
             if (star.flagImage != null && star.flagImage.getWidth() > 0) {
                 double flagSize = 16 + extraSize;
                 double halfSize = flagSize / 2;
@@ -302,7 +321,7 @@ public class NetworkCanvas extends Canvas {
         double bx = node.x + 20;
         double by = node.y - 20;
         double bw = 260;
-        double bh = isCluster ? 130 : 110;
+        double bh = isCluster ? 145 : 125; // Increased height for extra stats
 
         // Background
         gc.setFill(Color.rgb(20, 20, 30, 0.95));
@@ -347,7 +366,13 @@ public class NetworkCanvas extends Canvas {
 
         // Common Stats
         gc.setFill(Color.LIME);
-        gc.fillText("Data Transferred: " + formatBytes(node.totalBytes), bx + 10, by + yOff + 5);
+        gc.fillText("Total: " + formatBytes(node.totalBytes), bx + 10, by + yOff + 5);
+        
+        gc.setFill(Color.CYAN);
+        gc.fillText("↓ " + formatBytes(node.bytesDown), bx + 10, by + yOff + 20);
+        
+        gc.setFill(Color.ORANGE);
+        gc.fillText("↑ " + formatBytes(node.bytesUp), bx + 120, by + yOff + 20);
         
         // Status
         gc.setFill(node.isFrozen ? Color.CYAN : Color.YELLOW);

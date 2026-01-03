@@ -30,6 +30,8 @@ public class StarNode {
     public boolean isFrozen = false;
 
     public long totalBytes = 0;
+    public long bytesDown = 0;
+    public long bytesUp = 0;
     public String lastPorts = "N/A";
     
     // --- Enhanced Metrics ---
@@ -103,25 +105,39 @@ public class StarNode {
         return hostLastSeen.size();
     }
 
-    public void pulse(PacketEvent event, boolean inbound) {
+    /**
+     * Updates node state with a new packet.
+     * 
+     * @param event The packet event.
+     * @param inbound Direction.
+     * @param createVisuals If true, creates a visual particle. If false, only updates stats.
+     */
+    public void pulse(PacketEvent event, boolean inbound, boolean createVisuals) {
         this.activity = 1.0;
-        PacketParticle p = new PacketParticle(event.protocol(), inbound);
-        particles.add(p);
-        this.lastProtocolColor = p.color;
+        
+        if (createVisuals) {
+            PacketParticle p = new PacketParticle(event.protocol(), inbound);
+            particles.add(p);
+            this.lastProtocolColor = p.color;
+        }
 
-        this.totalBytes += event.payloadSize();
+        int size = event.payloadSize();
+        this.totalBytes += size;
+        
+        if (inbound) {
+            this.bytesDown += size;
+            this.lastPorts = event.sourcePort() + " -> " + event.targetPort();
+        } else {
+            this.bytesUp += size;
+            this.lastPorts = event.targetPort() + " -> " + event.sourcePort();
+        }
+        
         this.connectionCount++;
         
         String remoteIp = inbound ? event.sourceIp() : event.targetIp();
         this.hostLastSeen.put(remoteIp, System.nanoTime());
         
         this.protocolStats.merge(event.protocol(), 1, Integer::sum);
-        
-        if (inbound) {
-            this.lastPorts = event.sourcePort() + " -> " + event.targetPort();
-        } else {
-            this.lastPorts = event.targetPort() + " -> " + event.sourcePort();
-        }
     }
 
     public void update() {
