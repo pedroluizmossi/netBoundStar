@@ -4,6 +4,7 @@ import com.pedro.netboundstar.core.AppConfig;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.layout.VBox;
@@ -26,7 +27,7 @@ public class SettingsWindow {
     public static void show(Stage owner) {
         Stage stage = new Stage();
         stage.initOwner(owner);
-        stage.initModality(Modality.NONE); // Allows interacting with the main window while this is open
+        stage.initModality(Modality.NONE);
         stage.initStyle(StageStyle.UTILITY);
         stage.setTitle("⚙ Settings");
 
@@ -41,12 +42,12 @@ public class SettingsWindow {
                 1.0, 60.0, config.getStarLifeSeconds(),
                 newValue -> config.setStarLifeSeconds(newValue)));
 
-        // 2. Slider: Repulsion (Space between stars)
+        // 2. Slider: Repulsion
         root.getChildren().add(createSliderControl("Repulsion Force",
                 100.0, 20000.0, config.getRepulsionForce(),
                 newValue -> config.setRepulsionForce(newValue)));
 
-        // 3. Slider: Attraction (Center gravity)
+        // 3. Slider: Attraction
         root.getChildren().add(createSliderControl("Central Gravity",
                 0.001, 0.05, config.getAttractionForce(),
                 newValue -> config.setAttractionForce(newValue)));
@@ -55,6 +56,14 @@ public class SettingsWindow {
         root.getChildren().add(createSliderControl("Max Speed",
                 1.0, 50.0, config.getMaxPhysicsSpeed(),
                 newValue -> config.setMaxPhysicsSpeed(newValue)));
+
+        // 5. Checkbox: Debug Mode
+        CheckBox cbDebug = new CheckBox("Enable Debug Mode (FPS/Metrics)");
+        cbDebug.setSelected(config.isDebugMode());
+        cbDebug.setTextFill(Color.LIGHTBLUE);
+        cbDebug.setStyle("-fx-font-size: 12px; -fx-font-weight: bold;");
+        cbDebug.selectedProperty().addListener((obs, oldVal, newVal) -> config.setDebugMode(newVal));
+        root.getChildren().add(cbDebug);
 
         // Save Button
         Button btnSave = new Button("💾 Save Permanently");
@@ -66,22 +75,11 @@ public class SettingsWindow {
 
         root.getChildren().add(btnSave);
 
-        Scene scene = new Scene(root, 350, 400);
+        Scene scene = new Scene(root, 350, 450);
         stage.setScene(scene);
         stage.show();
     }
 
-    /**
-     * Creates a control with a Label and a Slider.
-     * Updates the label in real-time as the slider is moved.
-     *
-     * @param labelText The text for the label.
-     * @param min       Minimum value.
-     * @param max       Maximum value.
-     * @param current   Current value.
-     * @param listener  Callback for value changes.
-     * @return A VBox containing the label and slider.
-     */
     private static VBox createSliderControl(String labelText, double min, double max, double current, SliderListener listener) {
         Label label = new Label(labelText + ": " + String.format("%.3f", current));
         label.setTextFill(Color.LIGHTGREEN);
@@ -92,7 +90,6 @@ public class SettingsWindow {
         slider.setShowTickMarks(false);
         slider.setStyle("-fx-control-inner-background: #333; -fx-text-fill: white;");
 
-        // Real-time listener - updates as the slider moves
         slider.valueProperty().addListener((obs, oldVal, newVal) -> {
             double val = newVal.doubleValue();
             label.setText(labelText + ": " + String.format("%.3f", val));
@@ -102,15 +99,8 @@ public class SettingsWindow {
         return new VBox(5, label, slider);
     }
 
-    /**
-     * Functional interface for slider callbacks.
-     */
     @FunctionalInterface
     interface SliderListener {
-        /**
-         * Called when the slider value changes.
-         * @param value The new value.
-         */
         void onChange(double value);
     }
 }

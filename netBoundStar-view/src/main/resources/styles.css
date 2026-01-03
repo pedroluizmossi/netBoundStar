@@ -1,0 +1,71 @@
+/* src/main/resources/styles.css */
+.root {
+    -fx-background-color: #050510; /* Deep Space Background */
+    -fx-font-family: 'Consolas', 'Monospaced', sans-serif;
+}
+
+/* Glass Panels (Glassmorphism) */
+.glass-panel {
+    -fx-background-color: rgba(20, 25, 40, 0.75);
+    -fx-background-radius: 15;
+    -fx-border-color: rgba(0, 255, 255, 0.2);
+    -fx-border-radius: 15;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.6), 10, 0, 0, 5);
+    -fx-padding: 10;
+}
+
+/* Toolbar Buttons */
+.icon-button {
+    -fx-background-color: rgba(255, 255, 255, 0.05);
+    -fx-text-fill: #00ffff;
+    -fx-font-size: 14px;
+    -fx-background-radius: 8;
+    -fx-cursor: hand;
+    -fx-min-width: 40px;
+    -fx-min-height: 40px;
+    -fx-border-color: rgba(0, 255, 255, 0.1);
+    -fx-border-radius: 8;
+}
+
+.icon-button:hover {
+    -fx-background-color: rgba(0, 255, 255, 0.15);
+    -fx-effect: dropshadow(gaussian, #00ffff, 5, 0, 0, 0);
+}
+
+.icon-button:pressed {
+    -fx-background-color: rgba(0, 255, 255, 0.3);
+}
+
+/* Action Button (Config) */
+.action-button {
+    -fx-background-color: rgba(0, 255, 0, 0.1);
+    -fx-text-fill: #00ff00;
+    -fx-border-color: rgba(0, 255, 0, 0.3);
+}
+
+.action-button:hover {
+    -fx-background-color: rgba(0, 255, 0, 0.2);
+    -fx-effect: dropshadow(gaussian, #00ff00, 8, 0, 0, 0);
+}
+
+/* HUD Labels */
+.hud-label {
+    -fx-text-fill: #a0a0ff;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.hud-value {
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 14px;
+}
+
+/* Legend */
+.legend-item {
+    -fx-padding: 5;
+    -fx-alignment: center-left;
+}
+.legend-text {
+    -fx-fill: #cccccc;
+    -fx-font-size: 11px;
+}
