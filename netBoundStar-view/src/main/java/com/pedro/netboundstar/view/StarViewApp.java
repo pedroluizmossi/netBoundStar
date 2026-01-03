@@ -1,6 +1,8 @@
 package com.pedro.netboundstar.view;
 
 import com.pedro.netboundstar.core.AppConfig;
+import com.pedro.netboundstar.core.health.AppHealth;
+import com.pedro.netboundstar.core.health.CapturePrivileges;
 import com.pedro.netboundstar.view.util.StatsManager;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -10,6 +12,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
+import javafx.scene.control.Hyperlink;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
@@ -38,8 +41,10 @@ public class StarViewApp extends Application {
         uiLayer.setPickOnBounds(false);
 
         // --- TOP: HUD + Config ---
-        HBox topBar = createTopBar(stage);
-        uiLayer.setTop(topBar);
+        VBox topContainer = new VBox(10);
+        topContainer.setPickOnBounds(false);
+        topContainer.getChildren().addAll(createCaptureWarningBanner(), createTopBar(stage));
+        uiLayer.setTop(topContainer);
 
         // --- BOTTOM: Legend + Controls ---
         HBox bottomBar = createBottomBar();
@@ -164,6 +169,66 @@ public class StarViewApp extends Application {
         lbl.setTextFill(Color.web("#cccccc"));
         lbl.getStyleClass().add("legend-text");
         return new HBox(5, dot, lbl);
+    }
+
+    private Region createCaptureWarningBanner() {
+        CapturePrivileges status = AppHealth.getCapturePrivileges();
+        String msg = AppHealth.getCapturePrivilegesMessage();
+
+        // Only show banner if privileges are clearly insufficient or status is unknown (best-effort check failed).
+        if (status == CapturePrivileges.OK && (msg == null || msg.isBlank())) {
+            return new Region();
+        }
+
+        String header;
+        String details;
+        Color color;
+
+        if (status == CapturePrivileges.INSUFFICIENT) {
+            header = "Capture permissions missing";
+            details = msg != null ? msg : "Run with sudo or grant CAP_NET_RAW to java.";
+            color = Color.web("#ff5555");
+        } else if (status == CapturePrivileges.OK) {
+            header = "Capture permissions: OK";
+            details = msg != null ? msg : "";
+            color = Color.web("#ffaa00");
+        } else {
+            header = "Capture permissions unknown";
+            details = msg != null ? msg : "Capture may fail unless run as root/Administrator.";
+            color = Color.web("#ffaa00");
+        }
+
+        Label title = new Label(header);
+        title.setTextFill(Color.WHITE);
+        title.setStyle("-fx-font-weight: bold;");
+
+        Label body = new Label(details);
+        body.setWrapText(true);
+        body.setTextFill(Color.web("#eeeeee"));
+
+        Hyperlink hint = new Hyperlink("Show Linux fix (setcap)");
+        hint.setStyle("-fx-text-fill: #66ccff;");
+        hint.setOnAction(e -> {
+            // Print the command to stdout so users can copy. We avoid executing any privileged command.
+            System.out.println("Linux fix (note: setcap on /usr/bin/java symlink may fail. Use the real binary):");
+            System.out.println("  sudo setcap cap_net_raw,cap_net_admin=eip \"$(readlink -f $(command -v java))\"");
+        });
+
+        VBox box = new VBox(4, title, body, hint);
+        box.setPadding(new Insets(10));
+        box.setStyle(
+                "-fx-background-color: rgba(255, 60, 60, 0.18);" +
+                "-fx-background-radius: 10;" +
+                "-fx-border-radius: 10;" +
+                "-fx-border-color: rgba(255,255,255,0.15);" +
+                "-fx-border-width: 1;"
+        );
+
+        // Slight color cue on the left via border
+        box.setBorder(new Border(new BorderStroke(color,
+                BorderStrokeStyle.SOLID, new CornerRadii(10), new BorderWidths(0, 0, 0, 4))));
+
+        return box;
     }
 
     private void startUiUpdater() {

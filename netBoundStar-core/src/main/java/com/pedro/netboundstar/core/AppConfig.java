@@ -38,6 +38,9 @@ public class AppConfig {
     // --- Clustering Settings ---
     private boolean clusterByCountry = false;
 
+    // --- Network Interface Settings ---
+    private String networkInterface = null; // null means auto-detect
+
     // --- Debug Settings ---
     private boolean debugMode = false;
 
@@ -125,6 +128,10 @@ public class AppConfig {
     public boolean isClusterByCountry() { return clusterByCountry; }
     public void setClusterByCountry(boolean clusterByCountry) { this.clusterByCountry = clusterByCountry; }
 
+    // ========== Network Interface ==========
+    public String getNetworkInterface() { return networkInterface; }
+    public void setNetworkInterface(String networkInterface) { this.networkInterface = networkInterface; }
+
     // ========== Debug Mode ==========
     public boolean isDebugMode() { return debugMode; }
     public void setDebugMode(boolean debugMode) { this.debugMode = debugMode; }
@@ -144,6 +151,7 @@ public class AppConfig {
         props.setProperty("physics.attraction", String.valueOf(attractionForce));
         props.setProperty("physics.max.speed", String.valueOf(maxPhysicsSpeed));
         props.setProperty("cluster.by.country", String.valueOf(clusterByCountry));
+        props.setProperty("network.interface", networkInterface != null ? networkInterface : "");
         props.setProperty("debug.mode", String.valueOf(debugMode));
 
         try (Writer writer = Files.newBufferedWriter(configPath)) {
@@ -170,6 +178,8 @@ public class AppConfig {
             attractionForce = Double.parseDouble(props.getProperty("physics.attraction", "0.005"));
             maxPhysicsSpeed = Double.parseDouble(props.getProperty("physics.max.speed", "10.0"));
             clusterByCountry = Boolean.parseBoolean(props.getProperty("cluster.by.country", "false"));
+            String ifaceValue = props.getProperty("network.interface", "");
+            networkInterface = ifaceValue.isEmpty() ? null : ifaceValue;
             debugMode = Boolean.parseBoolean(props.getProperty("debug.mode", "false"));
         } catch (Exception e) {
             System.err.println("Error loading config: " + e.getMessage());

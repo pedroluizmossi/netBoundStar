@@ -1,6 +1,7 @@
 package com.pedro.netboundstar.app;
 
 import com.pedro.netboundstar.engine.service.SnifferService;
+import com.pedro.netboundstar.engine.util.CapturePermissionChecker;
 import com.pedro.netboundstar.view.StarViewApp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,9 @@ public class Main {
         logger.info("║           NetBoundStar - Starting                          ║");
         logger.info("║        Network Traffic Visualization Engine                ║");
         logger.info("╚════════════════════════════════════════════════════════════╝");
+
+        // Check capture permissions/capabilities early so the UI can show a friendly warning.
+        CapturePermissionChecker.checkAndPublishStatus();
 
         // 1. Start the Sniffer in the background (Daemon Thread)
         // Daemon threads automatically terminate when the main application closes.
