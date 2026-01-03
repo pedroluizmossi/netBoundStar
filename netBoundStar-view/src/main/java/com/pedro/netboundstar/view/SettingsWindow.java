@@ -57,7 +57,15 @@ public class SettingsWindow {
                 1.0, 50.0, config.getMaxPhysicsSpeed(),
                 newValue -> config.setMaxPhysicsSpeed(newValue)));
 
-        // 5. Checkbox: Debug Mode
+        // 5. Checkbox: Cluster by Country
+        CheckBox cbCluster = new CheckBox("Group by Country (Clustering)");
+        cbCluster.setSelected(config.isClusterByCountry());
+        cbCluster.setTextFill(Color.ORANGE);
+        cbCluster.setStyle("-fx-font-size: 12px; -fx-font-weight: bold;");
+        cbCluster.selectedProperty().addListener((obs, oldVal, newVal) -> config.setClusterByCountry(newVal));
+        root.getChildren().add(cbCluster);
+
+        // 6. Checkbox: Debug Mode
         CheckBox cbDebug = new CheckBox("Enable Debug Mode (FPS/Metrics)");
         cbDebug.setSelected(config.isDebugMode());
         cbDebug.setTextFill(Color.LIGHTBLUE);
@@ -75,7 +83,7 @@ public class SettingsWindow {
 
         root.getChildren().add(btnSave);
 
-        Scene scene = new Scene(root, 350, 450);
+        Scene scene = new Scene(root, 350, 500);
         stage.setScene(scene);
         stage.show();
     }

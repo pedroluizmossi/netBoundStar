@@ -3,13 +3,16 @@ package com.pedro.netboundstar.view;
 import com.pedro.netboundstar.core.AppConfig;
 import com.pedro.netboundstar.core.bus.TrafficBridge;
 import com.pedro.netboundstar.core.model.PacketEvent;
+import com.pedro.netboundstar.core.model.Protocol;
 import com.pedro.netboundstar.view.physics.PhysicsEngine;
+import com.pedro.netboundstar.view.util.GeoService;
 import com.pedro.netboundstar.view.util.StatsManager;
 import javafx.animation.AnimationTimer;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -17,7 +20,6 @@ import java.util.Map;
 
 /**
  * Optimized Canvas for rendering the network visualization.
- * Strictly limited to 60 FPS for both logic and rendering.
  */
 public class NetworkCanvas extends Canvas {
 
@@ -34,14 +36,12 @@ public class NetworkCanvas extends Canvas {
     private final StatsManager stats = new StatsManager();
     private volatile boolean paused = false;
 
-    // --- Debug Metrics (Smoothed) ---
     private double smoothedFps = 60.0;
     private double smoothedFrameTimeMs = 16.6;
     private static final double SMOOTHING_FACTOR = 0.05; 
 
-    // --- 60 FPS Limiter & Fixed Timestep ---
     private static final long NANOS_PER_FRAME = 1_000_000_000 / 60; 
-    private static final long JITTER_THRESHOLD = 1_000_000; // 1ms
+    private static final long JITTER_THRESHOLD = 1_000_000; 
     private long lastProcessedFrameNanos = 0;
     private long timeAccumulator = 0;
 
@@ -77,10 +77,7 @@ public class NetworkCanvas extends Canvas {
                 }
 
                 long elapsedNanos = now - lastProcessedFrameNanos;
-
-                if (elapsedNanos < (NANOS_PER_FRAME - JITTER_THRESHOLD)) {
-                    return;
-                }
+                if (elapsedNanos < (NANOS_PER_FRAME - JITTER_THRESHOLD)) return;
 
                 double currentFrameTimeMs = elapsedNanos / 1_000_000.0;
                 double currentFps = 1_000_000_000.0 / elapsedNanos;
@@ -88,15 +85,11 @@ public class NetworkCanvas extends Canvas {
                 smoothedFps += (currentFps - smoothedFps) * SMOOTHING_FACTOR;
 
                 lastProcessedFrameNanos = now;
-
                 timeAccumulator += elapsedNanos;
                 while (timeAccumulator >= NANOS_PER_FRAME) {
-                    if (!paused) {
-                        updateState();
-                    }
+                    if (!paused) updateState();
                     timeAccumulator -= NANOS_PER_FRAME;
                 }
-
                 render();
             }
         }.start();
@@ -106,14 +99,7 @@ public class NetworkCanvas extends Canvas {
     public boolean isPaused() { return paused; }
     public void clear() { stars.clear(); }
     public StatsManager getStats() { return stats; }
-    
-    /**
-     * Returns the map of active star nodes.
-     * @return Map of IP to StarNode.
-     */
-    public Map<String, StarNode> getStars() {
-        return stars;
-    }
+    public Map<String, StarNode> getStars() { return stars; }
 
     private boolean isInbound(String sourceIp) {
         return !sourceIp.startsWith("192.168.") && !sourceIp.startsWith("10.") && !sourceIp.equals("127.0.0.1");
@@ -130,11 +116,20 @@ public class NetworkCanvas extends Canvas {
             boolean inbound = isInbound(event.sourceIp());
             String remoteIp = inbound ? event.sourceIp() : event.targetIp();
 
-            StarNode node = stars.get(remoteIp);
+            String nodeKey = remoteIp;
+            if (config.isClusterByCountry()) {
+                String country = GeoService.getCachedCountry(remoteIp);
+                if (country != null) {
+                    nodeKey = "CLUSTER_" + country;
+                }
+            }
+
+            StarNode node = stars.get(nodeKey);
             if (node == null) {
                 node = new StarNode(remoteIp, centerX, centerY);
-                stars.put(remoteIp, node);
+                stars.put(nodeKey, node);
             }
+            
             stats.process(event, inbound);
             node.pulse(event, inbound);
         }
@@ -182,41 +177,49 @@ public class NetworkCanvas extends Canvas {
             star.drawParticles(gc, centerX, centerY);
         }
 
-        gc.setFont(new Font("Consolas", 12));
+        gc.setFont(Font.font("Consolas", FontWeight.NORMAL, 12));
         for (StarNode star : stars.values()) {
             double opacity = Math.max(0, star.activity);
             if (opacity < 0.05) continue;
 
+            // Scale size based on unique hosts (better for clusters)
+            int uniqueHosts = star.getUniqueHostCount();
+            double baseSize = 6;
+            double extraSize = Math.min(24, (uniqueHosts - 1) * 2.0);
+            double totalSize = baseSize + extraSize;
+
             if (star.isFrozen) {
                 gc.setStroke(Color.CYAN);
                 gc.setLineWidth(2);
-                gc.strokeOval(star.x - 10, star.y - 10, 20, 20);
+                gc.strokeOval(star.x - (totalSize+4)/2, star.y - (totalSize+4)/2, totalSize+4, totalSize+4);
             }
 
             if (star.isHovered) {
                 gc.setStroke(Color.YELLOW);
                 gc.setLineWidth(2);
-                gc.strokeOval(star.x - 8, star.y - 8, 16, 16);
+                gc.strokeOval(star.x - (totalSize+2)/2, star.y - (totalSize+2)/2, totalSize+2, totalSize+2);
             }
 
             if (star.flagImage != null && star.flagImage.getWidth() > 0) {
-                double size = 16;
-                double halfSize = size / 2;
+                double flagSize = 16 + extraSize;
+                double halfSize = flagSize / 2;
                 double flagOpacity = Math.max(0.4, star.activity);
                 gc.setGlobalAlpha(flagOpacity);
-                gc.drawImage(star.flagImage, star.x - halfSize, star.y - halfSize, size, size);
+                gc.drawImage(star.flagImage, star.x - halfSize, star.y - halfSize, flagSize, flagSize);
                 gc.setStroke(star.getLastProtocolColor().deriveColor(0, 1, 1, flagOpacity * 0.8));
                 gc.setLineWidth(1.0);
-                gc.strokeRect(star.x - halfSize, star.y - halfSize, size, size);
+                gc.strokeRect(star.x - halfSize, star.y - halfSize, flagSize, flagSize);
                 gc.setGlobalAlpha(1.0);
             } else {
                 gc.setFill(star.getLastProtocolColor().deriveColor(0, 1, 1, opacity));
-                gc.fillOval(star.x - 3, star.y - 3, 6, 6);
+                gc.fillOval(star.x - totalSize/2, star.y - totalSize/2, totalSize, totalSize);
             }
 
             if (star.activity > 0.5 || star.isHovered) {
                 gc.setFill(Color.rgb(200, 200, 200, opacity));
-                gc.fillText(star.displayName, star.x + 10, star.y + 4);
+                String label = star.getSmartLabel();
+                if (star.isCluster()) label += " (" + uniqueHosts + ")";
+                gc.fillText(label, star.x + totalSize/2 + 5, star.y + 4);
             }
         }
 
@@ -240,39 +243,69 @@ public class NetworkCanvas extends Canvas {
         gc.strokeRect(10, 100, 180, 80);
 
         gc.setFill(Color.LIME);
-        gc.setFont(new Font("Consolas", 11));
+        gc.setFont(Font.font("Consolas", 11));
         gc.fillText(String.format("FPS: %.1f", smoothedFps), 20, 120);
         gc.fillText(String.format("Frame: %.2f ms", smoothedFrameTimeMs), 20, 135);
         gc.fillText(String.format("Nodes: %d", stars.size()), 20, 150);
         gc.fillText(String.format("Queue: %d", bridge.size()), 20, 165);
-        
-        if (smoothedFrameTimeMs > 17.5) {
-            gc.setFill(Color.RED);
-            gc.fillOval(160, 112, 8, 8);
-        } else {
-            gc.setFill(Color.LIME);
-            gc.fillOval(160, 112, 8, 8);
-        }
     }
 
     private void drawTooltip(StarNode node) {
+        boolean isCluster = node.isCluster();
+        
         double bx = node.x + 20;
         double by = node.y - 20;
-        double bw = 240;
-        double bh = 100;
+        double bw = 260;
+        double bh = isCluster ? 130 : 110;
+
+        // Background
         gc.setFill(Color.rgb(20, 20, 30, 0.95));
         gc.setStroke(Color.CYAN);
         gc.setLineWidth(1.5);
         gc.fillRect(bx, by, bw, bh);
         gc.strokeRect(bx, by, bw, bh);
+
+        // Header
         gc.setFill(Color.WHITE);
-        gc.setFont(new Font("Consolas", 10));
-        gc.fillText("Host:  " + node.displayName, bx + 10, by + 18);
-        gc.fillText("IP:    " + node.ip, bx + 10, by + 33);
-        gc.fillText("Ports: " + node.lastPorts, bx + 10, by + 48);
-        gc.fillText("Status: " + (node.isFrozen ? "FROZEN ❄" : "Free"), bx + 10, by + 63);
+        gc.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+        gc.fillText(node.getSmartLabel(), bx + 10, by + 20);
+
+        gc.setFont(Font.font("Consolas", FontWeight.NORMAL, 11));
+        gc.setFill(Color.LIGHTGRAY);
+        
+        int yOff = 40;
+        int step = 15;
+
+        if (isCluster) {
+            gc.fillText("Type:       Region Cluster", bx + 10, by + yOff); yOff += step;
+            gc.fillText("Unique IPs: " + node.getUniqueHostCount(), bx + 10, by + yOff); yOff += step;
+            
+            // Show top protocol
+            Protocol topProto = node.protocolStats.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
+                .orElse(Protocol.OTHER);
+            
+            gc.fillText("Main Proto: " + topProto, bx + 10, by + yOff); yOff += step;
+            gc.fillText("Packets:    " + node.connectionCount, bx + 10, by + yOff); yOff += step;
+        } else {
+            gc.fillText("IP Address: " + node.ip, bx + 10, by + yOff); yOff += step;
+            gc.fillText("Last Port:  " + node.lastPorts, bx + 10, by + yOff); yOff += step;
+            
+            Protocol topProto = node.protocolStats.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
+                .orElse(Protocol.OTHER);
+            gc.fillText("Protocol:   " + topProto, bx + 10, by + yOff); yOff += step;
+        }
+
+        // Common Stats
         gc.setFill(Color.LIME);
-        gc.fillText("Total: " + formatBytes(node.totalBytes), bx + 10, by + 83);
+        gc.fillText("Data Transferred: " + formatBytes(node.totalBytes), bx + 10, by + yOff + 5);
+        
+        // Status
+        gc.setFill(node.isFrozen ? Color.CYAN : Color.YELLOW);
+        gc.fillText(node.isFrozen ? "❄ FROZEN" : "● ACTIVE", bx + bw - 70, by + 20);
     }
 
     private String formatBytes(long bytes) {

@@ -2,6 +2,7 @@ package com.pedro.netboundstar.view;
 
 import com.pedro.netboundstar.core.AppConfig;
 import com.pedro.netboundstar.core.model.PacketEvent;
+import com.pedro.netboundstar.core.model.Protocol;
 import com.pedro.netboundstar.view.util.DnsService;
 import com.pedro.netboundstar.view.util.FlagCache;
 import com.pedro.netboundstar.view.util.GeoService;
@@ -9,10 +10,8 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Represents a network node (star) in the visualization.
@@ -23,6 +22,7 @@ public class StarNode {
 
     public final String ip;
     public volatile String displayName;
+    public volatile String countryCode; 
     public double activity = 1.0;
 
     public boolean isHovered = false;
@@ -30,6 +30,14 @@ public class StarNode {
 
     public long totalBytes = 0;
     public String lastPorts = "N/A";
+    
+    // --- Enhanced Metrics ---
+    public int connectionCount = 1; 
+    
+    // Map of Host IP -> Last Seen Timestamp (System.nanoTime())
+    private final Map<String, Long> hostLastSeen = new ConcurrentHashMap<>();
+    
+    public final Map<Protocol, Integer> protocolStats = new ConcurrentHashMap<>();
 
     private Color lastProtocolColor = Color.WHITE;
     public Image flagImage = null;
@@ -39,6 +47,7 @@ public class StarNode {
     public StarNode(String ip, double centerX, double centerY) {
         this.ip = ip;
         this.displayName = ip;
+        this.hostLastSeen.put(ip, System.nanoTime());
 
         double angle = random.nextDouble() * 2 * Math.PI;
         double distance = 200 + random.nextDouble() * 150;
@@ -49,7 +58,26 @@ public class StarNode {
         this.vy = (random.nextDouble() - 0.5) * 2.0;
 
         DnsService.resolve(ip, resolvedName -> this.displayName = resolvedName);
-        GeoService.resolveCountry(ip, isoCode -> this.flagImage = FlagCache.get(isoCode));
+        
+        GeoService.resolveCountry(ip, isoCode -> {
+            this.countryCode = isoCode;
+            this.flagImage = FlagCache.get(isoCode);
+        });
+    }
+
+    public String getSmartLabel() {
+        if (AppConfig.get().isClusterByCountry() && hostLastSeen.size() > 1 && countryCode != null) {
+            return "Cluster: " + countryCode;
+        }
+        return displayName;
+    }
+
+    public boolean isCluster() {
+        return AppConfig.get().isClusterByCountry() && hostLastSeen.size() > 1;
+    }
+    
+    public int getUniqueHostCount() {
+        return hostLastSeen.size();
     }
 
     public void pulse(PacketEvent event, boolean inbound) {
@@ -59,6 +87,12 @@ public class StarNode {
         this.lastProtocolColor = p.color;
 
         this.totalBytes += event.payloadSize();
+        this.connectionCount++;
+        
+        String remoteIp = inbound ? event.sourceIp() : event.targetIp();
+        this.hostLastSeen.put(remoteIp, System.nanoTime());
+        
+        this.protocolStats.merge(event.protocol(), 1, Integer::sum);
         
         if (inbound) {
             this.lastPorts = event.sourcePort() + " -> " + event.targetPort();
@@ -68,9 +102,19 @@ public class StarNode {
     }
 
     public void update() {
+        // Decay activity
         if (activity > 0) {
             activity -= AppConfig.get().getDecayRatePerFrame();
         }
+        
+        // Prune expired hosts from the cluster
+        long now = System.nanoTime();
+        double lifeSeconds = AppConfig.get().getStarLifeSeconds();
+        long expirationNanos = (long) (lifeSeconds * 1_000_000_000L);
+        
+        hostLastSeen.entrySet().removeIf(entry -> (now - entry.getValue()) > expirationNanos);
+
+        // Update particles
         Iterator<PacketParticle> it = particles.iterator();
         while (it.hasNext()) {
             PacketParticle p = it.next();
@@ -108,10 +152,12 @@ public class StarNode {
     public boolean contains(double mx, double my) {
         double dx = this.x - mx;
         double dy = this.y - my;
-        return (dx * dx + dy * dy) < (12 * 12);
+        double radius = 12 + Math.min(20, hostLastSeen.size() * 2.0);
+        return (dx * dx + dy * dy) < (radius * radius);
     }
 
     public boolean isDead() {
-        return activity <= 0 && particles.isEmpty();
+        // Node dies if activity is zero AND no particles AND no active hosts
+        return activity <= 0 && particles.isEmpty() && hostLastSeen.isEmpty();
     }
 }
