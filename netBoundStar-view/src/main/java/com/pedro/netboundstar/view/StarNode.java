@@ -1,8 +1,9 @@
 package com.pedro.netboundstar.view;
 
+import com.pedro.netboundstar.core.AppConfig;
 import com.pedro.netboundstar.core.model.Protocol;
+import com.pedro.netboundstar.view.util.DnsService;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -11,7 +12,16 @@ import java.util.Random;
 
 public class StarNode {
     public double x, y;
+
+    // NOVOS CAMPOS: Velocidade vetorial para física
+    public double vx = 0;
+    public double vy = 0;
+
     public final String ip;
+
+    // NOVO: Nome de exibição (começa como IP, vira hostname depois)
+    public volatile String displayName;
+
     public double activity = 1.0;
 
     // Lista de partículas ativas nesta conexão
@@ -21,10 +31,23 @@ public class StarNode {
 
     public StarNode(String ip, double centerX, double centerY) {
         this.ip = ip;
+        this.displayName = ip; // Padrão inicial
+
+        // Posiciona a estrela em uma direção aleatória ao redor do centro
         double angle = random.nextDouble() * 2 * Math.PI;
         double distance = 200 + random.nextDouble() * 150;
         this.x = centerX + Math.cos(angle) * distance;
         this.y = centerY + Math.sin(angle) * distance;
+
+        // DICA: Começar com uma velocidade aleatória pequena evita que
+        // dois nós criados no mesmo lugar fiquem "grudados" (divisão por zero na física)
+        this.vx = (random.nextDouble() - 0.5) * 2.0;
+        this.vy = (random.nextDouble() - 0.5) * 2.0;
+
+        // DISPARA A RESOLUÇÃO DE DNS ASSIM QUE NASCE
+        DnsService.resolve(ip, resolvedName -> {
+            this.displayName = resolvedName;
+        });
     }
 
     // Agora recebe o protocolo e a direção para criar a partícula
@@ -35,7 +58,10 @@ public class StarNode {
     }
 
     public void update() {
-        if (activity > 0) activity -= 0.005;
+        // Mudança aqui: decaimento dinâmico baseado em AppConfig
+        if (activity > 0) {
+            activity -= AppConfig.get().getDecayRatePerFrame();
+        }
 
         // Atualiza todas as partículas e remove as que chegaram ao destino
         Iterator<PacketParticle> it = particles.iterator();
@@ -72,6 +98,17 @@ public class StarNode {
             // Tamanho fixo ou variável? Vamos começar com 4px
             gc.fillOval(currentX - 2, currentY - 2, 4, 4);
         }
+    }
+
+    // NOVO: Método que a Engine de Física vai chamar para aplicar o movimento calculado
+    public void applyPhysics() {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Atrito (Friction): Reduz a velocidade gradualmente para o nó não deslizar para sempre
+        // 0.90 significa que ele perde 10% da velocidade a cada frame (efeito de "atmosfera")
+        this.vx *= 0.90;
+        this.vy *= 0.90;
     }
 
     public boolean isDead() {

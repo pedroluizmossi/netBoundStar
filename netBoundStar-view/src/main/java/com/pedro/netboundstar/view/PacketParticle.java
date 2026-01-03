@@ -1,5 +1,6 @@
 package com.pedro.netboundstar.view;
 
+import com.pedro.netboundstar.core.AppConfig;
 import com.pedro.netboundstar.core.model.Protocol;
 import javafx.scene.paint.Color;
 
@@ -12,8 +13,8 @@ public class PacketParticle {
     public PacketParticle(Protocol protocol, boolean inbound) {
         this.inbound = inbound;
         this.color = getColorByProtocol(protocol);
-        // Velocidade aleatória para dar um efeito orgânico de fluxo (entre 0.02 e 0.05 por frame)
-        this.speed = 0.02 + Math.random() * 0.03;
+        // Velocidade configurável via AppConfig
+        this.speed = AppConfig.get().getRandomParticleSpeed();
     }
 
     public void update() {

@@ -30,13 +30,26 @@
 - [x] Detectar direção de fluxo (Inbound/Outbound): Identificar se é Download ou Upload.
 - [x] Renderizar partículas em camadas corretas (Linhas -> Partículas -> Nós -> Centro).
 
-## 🔧 Fase 5: Polimento
-- [ ] Adicionar overlay de texto (FPS, Total de Pacotes, Upload/Download Speed).
-- [ ] Permitir pausar a animação (barra de espaço).
-- [ ] Criar um JAR executável final com todas as dependências.
+## ✨ Fase 4.5: Melhorias de UX (Concluído)
+- [x] **Vida Longa**: Reduzir decay rate de 0.5% para 0.1% por frame (10x mais lenta).
+- [x] **Identidade Visual**: Mostrar IP ao lado de cada estrela (cinza claro, com transparência).
+- [x] **Feedback Físico**: Núcleo pulsante que cresce quando recebe tráfego (centerHeat).
+- [x] **Renderização em Camadas**: Linhas -> Partículas -> Estrelas + IPs -> Núcleo Pulsante.
 
-## 🐛 Questões Abertas
-- Qual deve ser a taxa de atualização da UI? (60 FPS padrão)
-- Como lidar com IPs privados vs públicos? (Cores diferentes?)
-- Deve ter filtro de protocolos na UI?
+## 🧠 Fase 5: DNS Assíncrono e Identidade (Concluído)
+- [x] **DnsService**: Resolvedor de DNS assíncrono usando Virtual Threads (Java 21+).
+- [x] **Cache de DNS**: Evita múltiplas requisições do mesmo IP.
+- [x] **displayName Dinâmico**: Estrelas começam com IP e "evoluem" para hostname.
+- [x] **AppConfig Integrado**: Todas as constantes centralizadas e configuráveis.
+
+## ⚛️ Fase 6: Física de Constelação (Concluído)
+- [x] **Lei de Coulomb**: Repulsão entre nós (evita sobreposição de texto).
+- [x] **Lei de Hooke**: Atração gravitacional para o centro (elástico).
+- [x] **Velocidade Vetorial**: Cada nó tem vx e vy para movimento suave.
+- [x] **Atrito (Friction)**: Nós desaceleram gradualmente (0.9x por frame).
+- [x] **Limite de Velocidade**: MAX_SPEED previne teletransporte.
+- [x] **PhysicsEngine.java**: Motor O(N²) para cálculos de força.
+- [x] **Integração no Canvas**: Física executada antes de atualizações lógicas.
+
+## 🔧 Fase 7: Polimento Final
 
