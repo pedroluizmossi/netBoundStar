@@ -18,6 +18,9 @@ import javafx.stage.Stage;
 import java.util.Timer;
 import java.util.TimerTask;
 
+/**
+ * Main JavaFX application class with HUD and Cyberpunk controls.
+ */
 public class StarViewApp extends Application {
 
     private NetworkCanvas canvas;
@@ -26,46 +29,39 @@ public class StarViewApp extends Application {
 
     @Override
     public void start(Stage stage) {
-        // 1. Camada de Fundo (Canvas)
+        // 1. Background Layer (Network Canvas)
         canvas = new NetworkCanvas(800, 600);
 
-        // 2. Camada de Interface (HUD)
-        // Usamos BorderPane para garantir que o Topo fique no Topo e o Rodapé embaixo.
+        // 2. UI Layer (HUD and Controls)
         BorderPane uiLayer = new BorderPane();
         uiLayer.setPadding(new Insets(20));
-
-        // [CRÍTICO] Permite clicar no Canvas através das áreas vazias da UI
         uiLayer.setPickOnBounds(false);
 
-        // --- BARRA SUPERIOR (HUD + Config) ---
+        // --- TOP: HUD + Config ---
         HBox topBar = createTopBar(stage);
         uiLayer.setTop(topBar);
 
-        // --- BARRA INFERIOR (Legenda + Controles) ---
+        // --- BOTTOM: Legend + Controls ---
         HBox bottomBar = createBottomBar();
         uiLayer.setBottom(bottomBar);
 
-        // 3. Raiz (Empilhamento)
+        // 3. Root (Stacking)
         StackPane root = new StackPane(canvas, uiLayer);
-
-        // O Canvas deve redimensionar junto com a janela
+        
         canvas.widthProperty().bind(root.widthProperty());
         canvas.heightProperty().bind(root.heightProperty());
 
         Scene scene = new Scene(root, 1024, 768);
-
-        // Tenta carregar o CSS (se existir)
+        
         try {
             String css = getClass().getResource("/styles.css").toExternalForm();
             scene.getStylesheets().add(css);
         } catch (Exception e) {
-            System.err.println("Aviso: styles.css não encontrado. A interface ficará sem estilo.");
+            System.err.println("Warning: styles.css not found.");
         }
 
         stage.setTitle("NetBoundStar :: Network Visualizer");
         stage.setScene(scene);
-
-        // Hooks de fechamento
         stage.setOnCloseRequest(e -> {
             AppConfig.get().save();
             if (uiUpdateTimer != null) uiUpdateTimer.cancel();
@@ -77,63 +73,51 @@ public class StarViewApp extends Application {
     }
 
     private HBox createTopBar(Stage stage) {
-        // 1. Painel de Stats (Esquerda)
         HBox statsPanel = createStatsPanel();
-
-        // 2. Botão de Config (Direita)
+        
         Button settingsBtn = new Button("⚙ CONFIG");
         settingsBtn.getStyleClass().addAll("icon-button", "action-button");
         settingsBtn.setOnAction(e -> SettingsWindow.show(stage));
-
-        // 3. Espaçador (Mola)
+        
         Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS); // Ocupa todo o espaço vazio
-        spacer.setPickOnBounds(false); // Permite clicar através do espaço vazio
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        spacer.setPickOnBounds(false);
 
-        // Montagem
         HBox topBar = new HBox(15, statsPanel, spacer, settingsBtn);
         topBar.setAlignment(Pos.CENTER_LEFT);
-        topBar.setPickOnBounds(false); // [CRÍTICO]
+        topBar.setPickOnBounds(false);
         return topBar;
     }
 
     private HBox createBottomBar() {
-        // 1. Legenda (Esquerda)
         HBox legend = createLegend();
-
-        // 2. Controles (Centro/Direita)
+        
         Button btnPause = new Button("⏸");
         btnPause.getStyleClass().add("icon-button");
-        btnPause.setTooltip(new Tooltip("Pausar/Retomar"));
+        btnPause.setTooltip(new Tooltip("Pause/Resume"));
         btnPause.setOnAction(e -> {
             boolean isPaused = !canvas.isPaused();
             canvas.setPaused(isPaused);
             btnPause.setText(isPaused ? "▶" : "⏸");
-            // Muda a cor do texto inline se o CSS falhar, mas idealmente usa CSS
             btnPause.setStyle(isPaused ? "-fx-text-fill: #ffaa00;" : "");
         });
 
         Button btnClear = new Button("🗑");
         btnClear.getStyleClass().add("icon-button");
-        btnClear.setTooltip(new Tooltip("Limpar Tela"));
+        btnClear.setTooltip(new Tooltip("Clear Screen"));
         btnClear.setOnAction(e -> canvas.clear());
 
         HBox controls = new HBox(10, btnPause, btnClear);
         controls.getStyleClass().add("glass-panel");
         controls.setAlignment(Pos.CENTER);
 
-        // 3. Espaçadores para centralizar ou separar
         Region spacerLeft = new Region();
         HBox.setHgrow(spacerLeft, Priority.ALWAYS);
         spacerLeft.setPickOnBounds(false);
 
-        // Se quiser os controles no CENTRO absoluto, precisaria de outro spacer na direita.
-        // Aqui vamos jogar controles para a Direita junto com o spacer.
-        // Layout: [Legenda] <---- VAZIO ----> [Controles]
-
         HBox bottomBar = new HBox(15, legend, spacerLeft, controls);
         bottomBar.setAlignment(Pos.CENTER_LEFT);
-        bottomBar.setPickOnBounds(false); // [CRÍTICO]
+        bottomBar.setPickOnBounds(false);
 
         return bottomBar;
     }
@@ -143,12 +127,11 @@ public class StarViewApp extends Application {
         lblTotalDown = new Label("0 B");
         lblTotalUp = new Label("0 B");
 
-        // Classes CSS
         lblPps.getStyleClass().add("hud-value");
         lblTotalDown.getStyleClass().add("hud-value");
         lblTotalUp.getStyleClass().add("hud-value");
 
-        VBox boxPps = createHudItem("PACOTES", lblPps);
+        VBox boxPps = createHudItem("PACKETS", lblPps);
         VBox boxDown = createHudItem("DOWN", lblTotalDown);
         VBox boxUp = createHudItem("UP", lblTotalUp);
 
@@ -167,7 +150,7 @@ public class StarViewApp extends Application {
     private HBox createLegend() {
         HBox itemTcp = createLegendItem(Color.CYAN, "TCP");
         HBox itemUdp = createLegendItem(Color.ORANGE, "UDP");
-        HBox itemOther = createLegendItem(Color.GRAY, "OUTROS");
+        HBox itemOther = createLegendItem(Color.GRAY, "OTHER");
 
         HBox legend = new HBox(15, itemTcp, itemUdp, itemOther);
         legend.getStyleClass().add("glass-panel");
@@ -178,12 +161,11 @@ public class StarViewApp extends Application {
     private HBox createLegendItem(Color color, String text) {
         Circle dot = new Circle(4, color);
         Label lbl = new Label(text);
-        lbl.setTextFill(Color.web("#cccccc")); // Fallback cor
+        lbl.setTextFill(Color.web("#cccccc"));
         lbl.getStyleClass().add("legend-text");
         return new HBox(5, dot, lbl);
     }
 
-    // --- Atualizador de UI (Thread Segura) ---
     private void startUiUpdater() {
         uiUpdateTimer = new Timer(true);
         uiUpdateTimer.scheduleAtFixedRate(new TimerTask() {

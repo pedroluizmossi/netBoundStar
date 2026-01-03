@@ -41,9 +41,6 @@ public class NetworkCanvas extends Canvas {
 
     // --- 60 FPS Limiter & Fixed Timestep ---
     private static final long NANOS_PER_FRAME = 1_000_000_000 / 60; 
-    /**
-     * Permissive threshold to avoid dropping frames due to micro-jitter in the timer.
-     */
     private static final long JITTER_THRESHOLD = 1_000_000; // 1ms
     private long lastProcessedFrameNanos = 0;
     private long timeAccumulator = 0;
@@ -81,13 +78,10 @@ public class NetworkCanvas extends Canvas {
 
                 long elapsedNanos = now - lastProcessedFrameNanos;
 
-                // FPS LIMITER: Use a slightly smaller threshold to account for timer jitter.
-                // This prevents the "30 FPS bug" on 60Hz monitors.
                 if (elapsedNanos < (NANOS_PER_FRAME - JITTER_THRESHOLD)) {
                     return;
                 }
 
-                // Metrics calculation
                 double currentFrameTimeMs = elapsedNanos / 1_000_000.0;
                 double currentFps = 1_000_000_000.0 / elapsedNanos;
                 smoothedFrameTimeMs += (currentFrameTimeMs - smoothedFrameTimeMs) * SMOOTHING_FACTOR;
@@ -95,7 +89,6 @@ public class NetworkCanvas extends Canvas {
 
                 lastProcessedFrameNanos = now;
 
-                // Logic and Physics Update
                 timeAccumulator += elapsedNanos;
                 while (timeAccumulator >= NANOS_PER_FRAME) {
                     if (!paused) {
@@ -113,6 +106,14 @@ public class NetworkCanvas extends Canvas {
     public boolean isPaused() { return paused; }
     public void clear() { stars.clear(); }
     public StatsManager getStats() { return stats; }
+    
+    /**
+     * Returns the map of active star nodes.
+     * @return Map of IP to StarNode.
+     */
+    public Map<String, StarNode> getStars() {
+        return stars;
+    }
 
     private boolean isInbound(String sourceIp) {
         return !sourceIp.startsWith("192.168.") && !sourceIp.startsWith("10.") && !sourceIp.equals("127.0.0.1");

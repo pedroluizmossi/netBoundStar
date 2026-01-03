@@ -2,7 +2,6 @@ package com.pedro.netboundstar.view;
 
 import com.pedro.netboundstar.core.AppConfig;
 import com.pedro.netboundstar.core.model.PacketEvent;
-import com.pedro.netboundstar.core.model.Protocol;
 import com.pedro.netboundstar.view.util.DnsService;
 import com.pedro.netboundstar.view.util.FlagCache;
 import com.pedro.netboundstar.view.util.GeoService;
@@ -17,13 +16,10 @@ import java.util.Random;
 
 /**
  * Represents a network node (star) in the visualization.
- * Handles its own position, physics velocity, activity level, and particles.
  */
 public class StarNode {
-    public double x;
-    public double y;
-    public double vx = 0;
-    public double vy = 0;
+    public double x, y;
+    public double vx = 0, vy = 0;
 
     public final String ip;
     public volatile String displayName;
@@ -35,11 +31,7 @@ public class StarNode {
     public long totalBytes = 0;
     public String lastPorts = "N/A";
 
-    /**
-     * The color of the last protocol received.
-     */
     private Color lastProtocolColor = Color.WHITE;
-
     public Image flagImage = null;
     private final List<PacketParticle> particles = new ArrayList<>();
     private static final Random random = new Random();
@@ -56,24 +48,18 @@ public class StarNode {
         this.vx = (random.nextDouble() - 0.5) * 2.0;
         this.vy = (random.nextDouble() - 0.5) * 2.0;
 
-        DnsService.resolve(ip, resolvedName -> {
-            this.displayName = resolvedName;
-        });
-
-        GeoService.resolveCountry(ip, isoCode -> {
-            this.flagImage = FlagCache.get(isoCode);
-        });
+        DnsService.resolve(ip, resolvedName -> this.displayName = resolvedName);
+        GeoService.resolveCountry(ip, isoCode -> this.flagImage = FlagCache.get(isoCode));
     }
 
     public void pulse(PacketEvent event, boolean inbound) {
         this.activity = 1.0;
         PacketParticle p = new PacketParticle(event.protocol(), inbound);
         particles.add(p);
-        
-        // Update the star's color to match the latest protocol
         this.lastProtocolColor = p.color;
 
         this.totalBytes += event.payloadSize();
+        
         if (inbound) {
             this.lastPorts = event.sourcePort() + " -> " + event.targetPort();
         } else {
@@ -85,21 +71,17 @@ public class StarNode {
         if (activity > 0) {
             activity -= AppConfig.get().getDecayRatePerFrame();
         }
-
         Iterator<PacketParticle> it = particles.iterator();
         while (it.hasNext()) {
             PacketParticle p = it.next();
             p.update();
-            if (p.isFinished()) {
-                it.remove();
-            }
+            if (p.isFinished()) it.remove();
         }
     }
 
     public void drawParticles(GraphicsContext gc, double centerX, double centerY) {
         for (PacketParticle p : particles) {
             double startX, startY, endX, endY;
-
             if (p.inbound) {
                 startX = this.x; startY = this.y;
                 endX = centerX; endY = centerY;
@@ -107,22 +89,14 @@ public class StarNode {
                 startX = centerX; startY = centerY;
                 endX = this.x; endY = this.y;
             }
-
             double currentX = startX + (endX - startX) * p.progress;
             double currentY = startY + (endY - startY) * p.progress;
-
             gc.setFill(p.color);
             gc.fillOval(currentX - 2, currentY - 2, 4, 4);
         }
     }
 
-    /**
-     * Returns the color of the last protocol received.
-     * @return The protocol color.
-     */
-    public Color getLastProtocolColor() {
-        return lastProtocolColor;
-    }
+    public Color getLastProtocolColor() { return lastProtocolColor; }
 
     public void applyPhysics() {
         this.x += this.vx;
