@@ -16,16 +16,14 @@ import java.util.Iterator;
 import java.util.Map;
 
 /**
- * Custom Canvas for rendering the network visualization.
- * Handles the animation loop, state updates, and rendering of stars and particles.
+ * Optimized Canvas for rendering the network visualization.
+ * Strictly limited to 60 FPS for both logic and rendering.
  */
 public class NetworkCanvas extends Canvas {
 
     private final GraphicsContext gc;
     private final TrafficBridge bridge;
-
     private final Map<String, StarNode> stars = new HashMap<>();
-
     private double centerHeat = 0.0;
     private final PhysicsEngine physics = new PhysicsEngine();
 
@@ -36,10 +34,19 @@ public class NetworkCanvas extends Canvas {
     private final StatsManager stats = new StatsManager();
     private volatile boolean paused = false;
 
-    // --- Debug Metrics ---
-    private long lastFrameTime = 0;
-    private double fps = 0;
-    private double frameTimeMs = 0;
+    // --- Debug Metrics (Smoothed) ---
+    private double smoothedFps = 60.0;
+    private double smoothedFrameTimeMs = 16.6;
+    private static final double SMOOTHING_FACTOR = 0.05; 
+
+    // --- 60 FPS Limiter & Fixed Timestep ---
+    private static final long NANOS_PER_FRAME = 1_000_000_000 / 60; 
+    /**
+     * Permissive threshold to avoid dropping frames due to micro-jitter in the timer.
+     */
+    private static final long JITTER_THRESHOLD = 1_000_000; // 1ms
+    private long lastProcessedFrameNanos = 0;
+    private long timeAccumulator = 0;
 
     public NetworkCanvas(double width, double height) {
         super(width, height);
@@ -67,17 +74,36 @@ public class NetworkCanvas extends Canvas {
         new AnimationTimer() {
             @Override
             public void handle(long now) {
-                // Calculate FPS and Frame Time
-                if (lastFrameTime > 0) {
-                    long delta = now - lastFrameTime;
-                    frameTimeMs = delta / 1_000_000.0;
-                    fps = 1_000_000_000.0 / delta;
+                if (lastProcessedFrameNanos == 0) {
+                    lastProcessedFrameNanos = now;
+                    return;
                 }
-                lastFrameTime = now;
 
-                if (!paused) {
-                    updateState();
+                long elapsedNanos = now - lastProcessedFrameNanos;
+
+                // FPS LIMITER: Use a slightly smaller threshold to account for timer jitter.
+                // This prevents the "30 FPS bug" on 60Hz monitors.
+                if (elapsedNanos < (NANOS_PER_FRAME - JITTER_THRESHOLD)) {
+                    return;
                 }
+
+                // Metrics calculation
+                double currentFrameTimeMs = elapsedNanos / 1_000_000.0;
+                double currentFps = 1_000_000_000.0 / elapsedNanos;
+                smoothedFrameTimeMs += (currentFrameTimeMs - smoothedFrameTimeMs) * SMOOTHING_FACTOR;
+                smoothedFps += (currentFps - smoothedFps) * SMOOTHING_FACTOR;
+
+                lastProcessedFrameNanos = now;
+
+                // Logic and Physics Update
+                timeAccumulator += elapsedNanos;
+                while (timeAccumulator >= NANOS_PER_FRAME) {
+                    if (!paused) {
+                        updateState();
+                    }
+                    timeAccumulator -= NANOS_PER_FRAME;
+                }
+
                 render();
             }
         }.start();
@@ -143,10 +169,11 @@ public class NetworkCanvas extends Canvas {
         gc.setFill(Color.rgb(10, 10, 15));
         gc.fillRect(0, 0, w, h);
 
+        gc.setLineWidth(1.0);
         for (StarNode star : stars.values()) {
+            if (star.activity < 0.05) continue;
             Color lineColor = star.getLastProtocolColor().deriveColor(0, 1, 1, Math.max(0, star.activity * 0.2));
             gc.setStroke(lineColor);
-            gc.setLineWidth(1.0);
             gc.strokeLine(centerX, centerY, star.x, star.y);
         }
 
@@ -157,11 +184,14 @@ public class NetworkCanvas extends Canvas {
         gc.setFont(new Font("Consolas", 12));
         for (StarNode star : stars.values()) {
             double opacity = Math.max(0, star.activity);
+            if (opacity < 0.05) continue;
+
             if (star.isFrozen) {
                 gc.setStroke(Color.CYAN);
                 gc.setLineWidth(2);
                 gc.strokeOval(star.x - 10, star.y - 10, 20, 20);
             }
+
             if (star.isHovered) {
                 gc.setStroke(Color.YELLOW);
                 gc.setLineWidth(2);
@@ -169,29 +199,21 @@ public class NetworkCanvas extends Canvas {
             }
 
             if (star.flagImage != null && star.flagImage.getWidth() > 0) {
-                double size = 20;
+                double size = 16;
                 double halfSize = size / 2;
                 double flagOpacity = Math.max(0.4, star.activity);
-                gc.save();
                 gc.setGlobalAlpha(flagOpacity);
-                gc.beginPath();
-                gc.arc(star.x, star.y, halfSize, halfSize, 0, 360);
-                gc.closePath();
-                gc.clip();
                 gc.drawImage(star.flagImage, star.x - halfSize, star.y - halfSize, size, size);
-                gc.restore();
                 gc.setStroke(star.getLastProtocolColor().deriveColor(0, 1, 1, flagOpacity * 0.8));
-                gc.setLineWidth(1.5);
-                gc.strokeOval(star.x - halfSize, star.y - halfSize, size, size);
+                gc.setLineWidth(1.0);
+                gc.strokeRect(star.x - halfSize, star.y - halfSize, size, size);
+                gc.setGlobalAlpha(1.0);
             } else {
                 gc.setFill(star.getLastProtocolColor().deriveColor(0, 1, 1, opacity));
-                gc.fillOval(star.x - 4, star.y - 4, 8, 8);
-                gc.setGlobalAlpha(opacity * 0.3);
-                gc.fillOval(star.x - 6, star.y - 6, 12, 12);
-                gc.setGlobalAlpha(1.0);
+                gc.fillOval(star.x - 3, star.y - 3, 6, 6);
             }
 
-            if (star.activity > 0.2) {
+            if (star.activity > 0.5 || star.isHovered) {
                 gc.setFill(Color.rgb(200, 200, 200, opacity));
                 gc.fillText(star.displayName, star.x + 10, star.y + 4);
             }
@@ -203,19 +225,14 @@ public class NetworkCanvas extends Canvas {
         gc.fillOval(centerX - currentRadius, centerY - currentRadius, currentRadius * 2, currentRadius * 2);
         gc.setGlobalAlpha(1.0);
         gc.setFill(Color.WHITE);
-        double coreRadius = 5 + (centerHeat * 0.2);
-        gc.fillOval(centerX - coreRadius, centerY - coreRadius, coreRadius * 2, coreRadius * 2);
+        gc.fillOval(centerX - 5, centerY - 5, 10, 10);
 
         if (hoveredNode != null) drawTooltip(hoveredNode);
-
-        // --- Render Debug Info ---
-        if (AppConfig.get().isDebugMode()) {
-            renderDebugInfo();
-        }
+        if (AppConfig.get().isDebugMode()) renderDebugInfo();
     }
 
     private void renderDebugInfo() {
-        gc.setFill(Color.rgb(0, 0, 0, 0.6));
+        gc.setFill(Color.rgb(20, 25, 40, 0.8));
         gc.fillRect(10, 100, 180, 80);
         gc.setStroke(Color.LIME);
         gc.setLineWidth(1);
@@ -223,13 +240,12 @@ public class NetworkCanvas extends Canvas {
 
         gc.setFill(Color.LIME);
         gc.setFont(new Font("Consolas", 11));
-        gc.fillText(String.format("FPS: %.1f", fps), 20, 120);
-        gc.fillText(String.format("Frame: %.2f ms", frameTimeMs), 20, 135);
+        gc.fillText(String.format("FPS: %.1f", smoothedFps), 20, 120);
+        gc.fillText(String.format("Frame: %.2f ms", smoothedFrameTimeMs), 20, 135);
         gc.fillText(String.format("Nodes: %d", stars.size()), 20, 150);
         gc.fillText(String.format("Queue: %d", bridge.size()), 20, 165);
         
-        // Color indicator for lag
-        if (frameTimeMs > 16.6) { // Below 60 FPS
+        if (smoothedFrameTimeMs > 17.5) {
             gc.setFill(Color.RED);
             gc.fillOval(160, 112, 8, 8);
         } else {
