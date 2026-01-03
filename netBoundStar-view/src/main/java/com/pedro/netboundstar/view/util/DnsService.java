@@ -8,57 +8,57 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 /**
- * Serviço de Resolução de DNS Assíncrono.
- * Transforma IPs em Hostnames usando Virtual Threads (Java 21+).
- * Implementa cache para evitar múltiplas requisições do mesmo IP.
+ * Asynchronous DNS Resolution Service.
+ * Resolves IP addresses to hostnames using Virtual Threads (Java 21+).
+ * Implements a cache to avoid redundant requests.
  */
 public class DnsService {
 
-    // Cache: IP -> Hostname (ex: "8.8.8.8" -> "dns.google")
+    /**
+     * Cache: IP -> Hostname (e.g., "8.8.8.8" -> "dns.google").
+     */
     private static final Map<String, String> cache = new ConcurrentHashMap<>();
 
-    // Executor usando Virtual Threads (Java 21+) - Perfeito para IO (Rede)
-    // Virtual Threads são baratos em memória, então podemos ter milhares simultâneas
+    /**
+     * Executor using Virtual Threads (Java 21+) - ideal for I/O-bound tasks.
+     */
     private static final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     /**
-     * Tenta resolver o hostname de um IP.
-     * Se já estiver em cache, retorna imediatamente via callback.
-     * Se não, roda em background (Virtual Thread) e chama o callback quando terminar.
+     * Attempts to resolve the hostname of an IP address.
+     * If cached, returns immediately via callback.
+     * Otherwise, runs in the background and calls the callback upon completion.
      *
-     * @param ip IP a resolver (ex: "8.8.8.8")
-     * @param onResolved Callback chamado com o hostname resolvido
+     * @param ip         The IP address to resolve.
+     * @param onResolved Callback invoked with the resolved hostname.
      */
     public static void resolve(String ip, Consumer<String> onResolved) {
-        // 1. Verifica cache rápido (acesso thread-safe)
+        // 1. Check cache first
         if (cache.containsKey(ip)) {
             onResolved.accept(cache.get(ip));
             return;
         }
 
-        // 2. Se não tem em cache, lança a tarefa para uma Virtual Thread
+        // 2. If not in cache, submit task to a Virtual Thread
         executor.submit(() -> {
             try {
-                // Isso demora (bloqueante), mas como é Virtual Thread, não custa caro para a CPU
-                // A thread fica suspensa esperando resposta da rede, liberando o scheduler
+                // Blocking network call
                 InetAddress inetAddr = InetAddress.getByName(ip);
                 String hostname = inetAddr.getCanonicalHostName();
 
-                // Se o Java devolver o próprio IP, significa que não achou nome
-                // Neste caso, mantemos o IP mesmo
+                // If Java returns the IP itself, it means no hostname was found
                 if (hostname.equals(ip)) {
                     hostname = ip;
                 }
 
-                // Armazena em cache para próximas vezes
+                // Store in cache
                 cache.put(ip, hostname);
 
-                // Notifica a UI com o resultado (callback será executado na thread que chamou resolve)
+                // Notify the UI with the result
                 onResolved.accept(hostname);
 
             } catch (Exception e) {
-                // Em caso de erro (timeout, DNS indisponível, etc), guarda o próprio IP
-                // para não tentar resolver de novo
+                // On error, cache the IP itself to prevent repeated failed attempts
                 cache.put(ip, ip);
                 onResolved.accept(ip);
             }
@@ -66,17 +66,18 @@ public class DnsService {
     }
 
     /**
-     * Limpa o cache (útil para testes ou se você quiser forçar re-resolução)
+     * Clears the DNS cache.
      */
     public static void clearCache() {
         cache.clear();
     }
 
     /**
-     * Retorna o tamanho do cache (para debug)
+     * Returns the current size of the DNS cache.
+     *
+     * @return Cache size.
      */
     public static int getCacheSize() {
         return cache.size();
     }
 }
-

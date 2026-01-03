@@ -9,14 +9,17 @@ import javafx.scene.control.Button;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 
+/**
+ * Main JavaFX application class for the NetBoundStar visualizer.
+ */
 public class StarViewApp extends Application {
 
     @Override
     public void start(Stage stage) {
-        // Cria nosso Canvas customizado
+        // Create our custom Canvas
         NetworkCanvas canvas = new NetworkCanvas(800, 600);
 
-        // Botão de Configurações (⚙)
+        // Settings Button (⚙)
         Button settingsBtn = new Button("⚙ Config");
         settingsBtn.setStyle("-fx-background-color: rgba(255,255,255,0.1); " +
                 "-fx-text-fill: #00ff00; " +
@@ -25,15 +28,15 @@ public class StarViewApp extends Application {
                 "-fx-padding: 8px 12px;");
         settingsBtn.setOnAction(e -> SettingsWindow.show(stage));
 
-        // StackPane permite empilhar coisas (Canvas embaixo, Botão em cima)
+        // StackPane allows stacking elements (Canvas at the bottom, Button on top)
         StackPane root = new StackPane(canvas, settingsBtn);
 
-        // Alinha o botão no topo direito
+        // Align the button to the top right
         StackPane.setAlignment(settingsBtn, Pos.TOP_RIGHT);
-        // Margem para não colar na borda
+        // Margin to avoid sticking to the edge
         StackPane.setMargin(settingsBtn, new Insets(10));
 
-        // Faz o canvas seguir o tamanho da janela
+        // Make the canvas follow the window size
         canvas.widthProperty().bind(root.widthProperty());
         canvas.heightProperty().bind(root.heightProperty());
 
@@ -42,17 +45,16 @@ public class StarViewApp extends Application {
         stage.setTitle("NetBoundStar :: Network Visualizer");
         stage.setScene(scene);
 
-        // Salva configs ao fechar a janela principal também, por garantia
+        // Save configurations when closing the main window
         stage.setOnCloseRequest(e -> AppConfig.get().save());
 
         stage.show();
     }
 
-    // Método estático para facilitar o lançamento pelo módulo 'app'
+    /**
+     * Static method to launch the application.
+     */
     public static void launchApp() {
         launch();
     }
 }
-
-
-

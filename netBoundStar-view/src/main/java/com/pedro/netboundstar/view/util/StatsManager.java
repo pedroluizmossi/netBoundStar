@@ -8,41 +8,42 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Gerenciador de Estatísticas de Tráfego em Tempo Real.
- * Calcula velocidades de download/upload, totais de sessão e histórico para gráficos.
+ * Real-time Traffic Statistics Manager.
+ * Calculates download/upload speeds, session totals, and history for graphs.
  */
 public class StatsManager {
 
-    // Totais da Sessão
+    // Session Totals
     private long totalBytesDown = 0;
     private long totalBytesUp = 0;
 
-    // Velocidade Atual (Bytes por segundo)
+    // Current Speed (Bytes per second)
     private long currentDownSpeed = 0;
     private long currentUpSpeed = 0;
 
-    // Acumuladores temporários (zeram a cada segundo)
+    // Temporary accumulators (reset every second)
     private long tempDown = 0;
     private long tempUp = 0;
     private long lastCheckTime = System.currentTimeMillis();
 
-    // Contagem de Protocolos
+    // Protocol Counts
     private final Map<Protocol, Long> protocolCounts = new ConcurrentHashMap<>();
 
-    // Histórico para o Gráfico (últimos 100 pontos)
-    // Cada ponto é um array: [downSpeed, upSpeed]
+    // History for the Graph (last 100 points)
+    // Each point is an array: [downSpeed, upSpeed]
     private final LinkedList<long[]> history = new LinkedList<>();
     private static final int MAX_HISTORY = 100;
 
     /**
-     * Processa um novo pacote capturado.
-     * @param event O evento do pacote
-     * @param inbound true se é download, false se é upload
+     * Processes a new captured packet.
+     *
+     * @param event   The packet event.
+     * @param inbound true if it's download, false if it's upload.
      */
     public void process(PacketEvent event, boolean inbound) {
         int size = event.payloadSize();
 
-        // Atualiza totais
+        // Update totals
         if (inbound) {
             totalBytesDown += size;
             tempDown += size;
@@ -51,31 +52,37 @@ public class StatsManager {
             tempUp += size;
         }
 
-        // Conta Protocolo
+        // Count Protocol
         protocolCounts.merge(event.protocol(), 1L, Long::sum);
     }
 
     /**
-     * Deve ser chamado a cada frame para atualizar as velocidades.
-     * Calcula a velocidade quando passa 1 segundo.
+     * Should be called every frame to update speeds.
+     * Calculates speed when 1 second has passed.
      */
     public void tick() {
         long now = System.currentTimeMillis();
-        // Se passou 1 segundo, fecha a conta da velocidade
+        // If 1 second has passed, calculate speed
         if (now - lastCheckTime >= 1000) {
             currentDownSpeed = tempDown;
             currentUpSpeed = tempUp;
 
-            // Adiciona ao histórico do gráfico
+            // Add to graph history
             addToHistory(currentDownSpeed, currentUpSpeed);
 
-            // Reseta temporários
+            // Reset temporary accumulators
             tempDown = 0;
             tempUp = 0;
             lastCheckTime = now;
         }
     }
 
+    /**
+     * Adds speed data to the history list.
+     *
+     * @param down Download speed.
+     * @param up   Upload speed.
+     */
     private void addToHistory(long down, long up) {
         history.add(new long[]{down, up});
         if (history.size() > MAX_HISTORY) {
@@ -84,32 +91,60 @@ public class StatsManager {
     }
 
     // ========== Getters ==========
+
+    /**
+     * Gets total bytes downloaded.
+     * @return Total bytes down.
+     */
     public long getTotalBytesDown() {
         return totalBytesDown;
     }
 
+    /**
+     * Gets total bytes uploaded.
+     * @return Total bytes up.
+     */
     public long getTotalBytesUp() {
         return totalBytesUp;
     }
 
+    /**
+     * Gets current download speed in bytes per second.
+     * @return Download speed.
+     */
     public long getDownSpeed() {
         return currentDownSpeed;
     }
 
+    /**
+     * Gets current upload speed in bytes per second.
+     * @return Upload speed.
+     */
     public long getUpSpeed() {
         return currentUpSpeed;
     }
 
+    /**
+     * Gets the map of protocol counts.
+     * @return Protocol counts map.
+     */
     public Map<Protocol, Long> getProtocolCounts() {
         return protocolCounts;
     }
 
+    /**
+     * Gets the traffic history list.
+     * @return History list.
+     */
     public LinkedList<long[]> getHistory() {
         return history;
     }
 
+    /**
+     * Gets the total number of packets processed.
+     * @return Total packets.
+     */
     public long getTotalPackets() {
         return protocolCounts.values().stream().mapToLong(Long::longValue).sum();
     }
 }
-

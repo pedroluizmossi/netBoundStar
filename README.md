@@ -1,58 +1,58 @@
 # NetBoundStar 🌌
 
-**NetBoundStar** é uma ferramenta de visualização de telemetria de rede em tempo real. Diferente de analisadores convencionais (como Wireshark), ele transforma o tráfego de dados numa experiência visual artística baseada em "Constelações", onde cada conexão é uma estrela e cada pacote é uma partícula de energia.
+**NetBoundStar** is a real-time network telemetry visualization tool. Unlike conventional packet analyzers (such as Wireshark), it transforms data traffic into an artistic visual experience based on "Constellations" — each connection is a star and each packet is a particle of energy.
 
-## 🏛 Arquitetura
+## 🏛 Architecture
 
-O projeto segue um padrão de **Monólito Modular** para garantir desacoplamento entre a captura de baixo nível e a renderização de alto nível.
+The project follows a modular monolith pattern to keep low-level capture decoupled from high-level rendering.
 
-### Módulos
-* **`netBoundStar-core`**: O domínio puro. Contém os DTOs (`PacketEvent`) e o Barramento de Eventos (`TrafficBridge`). Sem dependências externas.
-* **`netBoundStar-engine`**: O "Sniffer". Usa `Pcap4j` para interceptar pacotes da placa de rede, filtrá-los e publicá-los no barramento.
-* **`netBoundStar-view`**: (Em desenvolvimento) O motor gráfico em JavaFX. Responsável pela renderização do Canvas e cálculos de física.
-* **`netBoundStar-app`**: O orquestrador. Inicializa as threads e injeta as dependências.
+### Modules
+* **`netBoundStar-core`**: The pure domain layer. Contains DTOs (`PacketEvent`) and the Event Bus (`TrafficBridge`). No external runtime dependencies.
+* **`netBoundStar-engine`**: The "Sniffer". Uses `Pcap4j` to capture network packets, filter them and publish events to the bus.
+* **`netBoundStar-view`**: (In development) The JavaFX graphics engine. Responsible for Canvas rendering and physics calculations.
+* **`netBoundStar-app`**: The orchestrator. Boots threads and wires dependencies.
 
-## 🛠 Requisitos
+## 🛠 Requirements
 
 * **Java 21** (LTS)
 * **Maven** 3.8+
-* **Driver de Captura de Pacotes (Nativo):**
-  * *Windows:* [Npcap](https://npcap.com/) (Instalar com a opção "WinPcap API-compatible Mode").
-  * *Linux:* `libpcap-dev` (Geralmente requer execução com `sudo`).
+* **Native Packet Capture Driver:**
+  * *Windows:* [Npcap](https://npcap.com/) (Install with the "WinPcap API-compatible Mode" option).
+  * *Linux:* `libpcap-dev` (May require running with `sudo`).
   * *MacOS:* `libpcap`.
 
-## 🚀 Como Rodar (Modo Console)
+## 🚀 How to Run (Console Mode)
 
-1. Certifique-se de ter o Npcap/Libpcap instalado.
-2. Compile o projeto:
+1. Make sure Npcap / Libpcap is installed.
+2. Build the project:
    ```bash
    mvn clean install
    ```
 
-3. Execute a classe Main no módulo app:
+3. Run the Main class in the app module:
 
-   **No Linux/macOS (requer sudo):**
+   **On Linux/macOS (may require sudo):**
    ```bash
    cd /home/pedrom/IdeaProjects/netBoundStar
    sudo mvn exec:java -Dexec.mainClass="com.pedro.netboundstar.app.Main" -pl netBoundStar-app
    ```
 
-   **No Windows (IDE como Administrador):**
-   - Abra o IntelliJ IDEA como Administrador
-   - Execute `com.pedro.netboundstar.app.Main` normalmente
+   **On Windows (use IDE or run as Administrator):**
+   - Open IntelliJ IDEA as Administrator
+   - Run `com.pedro.netboundstar.app.Main` normally
 
-   **Via JAR (após compilação):**
+   **Via JAR (after building):**
    ```bash
    sudo java -cp target/classes:$(mvn dependency:build-classpath -q -Dmdep.outputFile=/dev/stdout) com.pedro.netboundstar.app.Main
    ```
 
-> **Nota:** No Linux, você pode precisar de permissões elevadas. Se receber erros de permissão, rode com `sudo`.
+> **Note:** On Linux, elevated permissions may be required to open network interfaces. If you see permission errors, try running with `sudo`.
 
-## 📊 Fluxo de Dados
+## 📊 Data Flow
 
 ```
 ┌─────────────────┐
-│  Interface NIC  │ (Placa de Rede)
+│  Network NIC    │ (Network Interface)
 └────────┬────────┘
          │
          ▼
@@ -70,24 +70,23 @@ O projeto segue um padrão de **Monólito Modular** para garantir desacoplamento
          ▼
 ┌─────────────────────────────┐
 │  Console/UI (Thread)        │ (app/view)
-│  Renderização ou Logs       │
+│  Rendering or Logs          │
 └─────────────────────────────┘
 ```
 
-## 🌟 Características Planejadas
+## 🌟 Planned Features
 
-- ✅ Captura de pacotes em tempo real
-- ✅ Detecção automática de interface de rede
-- 🚧 Visualização em Canvas JavaFX
-- 🚧 Física de partículas (atração/repulsão)
-- 🚧 Efeitos de glow e cores por protocolo
-- 🚧 Estatísticas em tempo real (FPS, velocidade)
+- ✅ Real-time packet capture
+- ✅ Automatic network interface detection
+- 🚧 JavaFX Canvas-based visualization
+- 🚧 Particle physics (attraction/repulsion)
+- 🚧 Glow and protocol-based coloring effects
+- 🚧 Real-time statistics (FPS, throughput)
 
-## 📝 Licença
+## 📝 License
 
-MIT - Sinta-se livre para usar, modificar e distribuir.
+MIT - Feel free to use, modify and distribute.
 
 ---
 
 **"We are all connected."** 🌐
-

@@ -9,41 +9,46 @@ import org.slf4j.LoggerFactory;
 import java.net.Inet4Address;
 import java.util.List;
 
+/**
+ * Utility class for selecting network interfaces.
+ */
 public class NetworkSelector {
 
     private static final Logger logger = LoggerFactory.getLogger(NetworkSelector.class);
 
     private NetworkSelector() {
-        // Classe utilitária - não instanciar
+        // Utility class - do not instantiate
     }
 
     /**
-     * Tenta encontrar automaticamente a interface de rede ativa.
-     * Critério: Procura a primeira interface que tenha um endereço IP v4 e não seja loopback (127.0.0.1).
+     * Attempts to automatically find the active network interface.
+     * Criterion: Looks for the first interface that has an IPv4 address and is not a loopback interface.
+     *
+     * @return The selected PcapNetworkInterface.
+     * @throws PcapNativeException If no network interfaces are found or an error occurs.
      */
     public static PcapNetworkInterface findActiveInterface() throws PcapNativeException {
         List<PcapNetworkInterface> allDevs = Pcaps.findAllDevs();
 
         if (allDevs == null || allDevs.isEmpty()) {
-            throw new PcapNativeException("Nenhuma interface de rede encontrada. Verifique as permissões (root/admin).");
+            throw new PcapNativeException("No network interfaces found. Check permissions (root/admin).");
         }
 
         for (PcapNetworkInterface device : allDevs) {
-            // Ignora interfaces locais (localhost)
+            // Ignore loopback interfaces
             if (device.isLoopBack()) continue;
 
-            // Verifica se tem um endereço IPv4 associado (geralmente indica que está ligada)
+            // Check if it has an associated IPv4 address (usually indicates it's active)
             boolean hasIpv4 = device.getAddresses().stream()
                     .anyMatch(addr -> addr.getAddress() instanceof Inet4Address);
 
             if (hasIpv4) {
-                logger.info("Interface selecionada: {} - {}", device.getName(), device.getDescription());
+                logger.info("Selected interface: {} - {}", device.getName(), device.getDescription());
                 return device;
             }
         }
 
-        // Se não encontrar a ideal, devolve a primeira disponível como fallback
+        // If no ideal interface is found, return the first available as fallback
         return allDevs.getFirst();
     }
 }
-

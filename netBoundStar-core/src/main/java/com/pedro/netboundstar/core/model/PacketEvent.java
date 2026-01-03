@@ -3,15 +3,15 @@ package com.pedro.netboundstar.core.model;
 import java.time.Instant;
 
 /**
- * Representa um único pacote capturado, simplificado para visualização.
+ * Represents a single captured packet, simplified for visualization.
  *
- * @param sourceIp IP de origem (quem enviou)
- * @param sourcePort Porta de origem
- * @param targetIp IP de destino (quem recebe)
- * @param targetPort Porta de destino
- * @param protocol O tipo do protocolo (para definir a cor)
- * @param payloadSize O tamanho em bytes (para definir o brilho/tamanho)
- * @param timestamp O momento exato da captura (para sincronia)
+ * @param sourceIp The source IP address.
+ * @param sourcePort The source port.
+ * @param targetIp The destination IP address.
+ * @param targetPort The destination port.
+ * @param protocol The protocol type (used for color coding).
+ * @param payloadSize The size of the payload in bytes (used for brightness/size).
+ * @param timestamp The exact moment of capture (used for synchronization).
  */
 public record PacketEvent(
     String sourceIp,
@@ -22,10 +22,11 @@ public record PacketEvent(
     int payloadSize,
     Instant timestamp
 ) {
-    // Construtor compacto para validações
+    /**
+     * Compact constructor for validation.
+     */
     public PacketEvent {
         if (payloadSize < 0) payloadSize = 0;
         if (timestamp == null) timestamp = Instant.now();
     }
 }
-

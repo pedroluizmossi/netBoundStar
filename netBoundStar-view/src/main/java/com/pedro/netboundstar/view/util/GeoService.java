@@ -7,27 +7,27 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 /**
- * Serviço de Geolocalização usando MaxMind GeoLite2.
- * Resolve IPs para países de forma assíncrona usando Virtual Threads (Java 21+).
+ * Geolocation Service using MaxMind GeoLite2.
+ * Resolves IP addresses to countries asynchronously using Virtual Threads (Java 21+).
  *
- * NOTA: Usa lazy loading para evitar ClassDefNotFoundError se MaxMind não estiver disponível.
+ * NOTE: Uses lazy loading and reflection to avoid ClassDefNotFoundError if MaxMind is not available.
  */
 public class GeoService {
 
-    private static Object reader; // Object para evitar ClassDefNotFoundError na inicialização
+    private static Object reader; // Object to avoid ClassDefNotFoundError during initialization
     private static final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     private static boolean isAvailable = false;
 
-    // Inicialização estática com try-catch robusto
+    // Static initialization with robust error handling
     static {
         try {
-            // Tenta carregar a classe DatabaseReader dinamicamente
+            // Attempt to load DatabaseReader class dynamically
             Class<?> databaseReaderClass = Class.forName("com.maxmind.geoip2.DatabaseReader");
             Class<?> builderClass = Class.forName("com.maxmind.geoip2.DatabaseReader$Builder");
 
             InputStream dbStream = GeoService.class.getResourceAsStream("/geo/GeoLite2-Country.mmdb");
             if (dbStream != null) {
-                // Usa reflection para criar o DatabaseReader (evita direct import)
+                // Use reflection to create the DatabaseReader
                 var builderConstructor = builderClass.getConstructor(InputStream.class);
                 Object builder = builderConstructor.newInstance(dbStream);
 
@@ -35,43 +35,46 @@ public class GeoService {
                 reader = buildMethod.invoke(builder);
 
                 isAvailable = true;
-                System.out.println("✓ GeoLite2 carregado com sucesso!");
+                System.out.println("✓ GeoLite2 loaded successfully!");
             } else {
-                System.err.println("⚠ Arquivo GeoLite2-Country.mmdb não encontrado em /resources/geo/");
+                System.err.println("⚠ GeoLite2-Country.mmdb file not found in /resources/geo/");
             }
         } catch (ClassNotFoundException e) {
-            System.err.println("⚠ MaxMind GeoIP2 não disponível - bandeiras desativadas (coloque em flags/ como SVG)");
+            System.err.println("⚠ MaxMind GeoIP2 not available - flags disabled");
         } catch (Exception e) {
-            System.err.println("⚠ Erro ao carregar GeoLite2: " + e.getMessage());
+            System.err.println("⚠ Error loading GeoLite2: " + e.getMessage());
         }
     }
 
     /**
-     * Resolve o código ISO do país (ex: "BR", "US") de um IP de forma assíncrona.
-     * Se o IP for local ou GeoService não estiver disponível, a callback não é chamada.
+     * Resolves the ISO country code (e.g., "BR", "US") for an IP address asynchronously.
+     *
+     * @param ip       The IP address to resolve.
+     * @param callback Callback invoked with the resolved ISO country code.
      */
     public static void resolveCountry(String ip, Consumer<String> callback) {
-        // Se não carregou ou não está disponível, não faz nada
+        // If not loaded or available, do nothing
         if (!isAvailable || reader == null) return;
 
-        // Ignora IPs locais
+        // Ignore local IPs
         if (ip == null || ip.startsWith("192.168") || ip.startsWith("10.") || ip.equals("127.0.0.1")) {
             return;
         }
 
-        // Executa em background
+        // Execute in background
         executor.submit(() -> {
             try {
                 InetAddress ipAddr = InetAddress.getByName(ip);
 
-                // Usa reflection para chamar o método country()
+                // Use reflection to call the country() method
                 var countryMethod = reader.getClass().getMethod("country", InetAddress.class);
                 Object response = countryMethod.invoke(reader, ipAddr);
 
-                // Obtém o país
+                // Get the country object
                 var getCountryMethod = response.getClass().getMethod("getCountry");
                 Object countryObj = getCountryMethod.invoke(response);
 
+                // Get the ISO code
                 var getIsoCodeMethod = countryObj.getClass().getMethod("getIsoCode");
                 String isoCode = (String) getIsoCodeMethod.invoke(countryObj);
 
@@ -79,9 +82,8 @@ public class GeoService {
                     callback.accept(isoCode);
                 }
             } catch (Exception e) {
-                // Erro ao resolver (IP privado, não encontrado, etc)
+                // Error resolving (private IP, not found, etc.)
             }
         });
     }
 }
-

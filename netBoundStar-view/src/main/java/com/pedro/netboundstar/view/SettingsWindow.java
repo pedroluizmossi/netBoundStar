@@ -13,22 +13,22 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
 /**
- * Janela flutuante de Configurações.
- * Permite ajustar em tempo real os parâmetros da aplicação usando Sliders.
+ * Floating Settings Window.
+ * Allows real-time adjustment of application parameters using Sliders.
  */
 public class SettingsWindow {
 
     /**
-     * Exibe a janela de configurações.
+     * Displays the settings window.
      *
-     * @param owner Janela proprietária (a janela principal)
+     * @param owner The owner stage (main window).
      */
     public static void show(Stage owner) {
         Stage stage = new Stage();
         stage.initOwner(owner);
-        stage.initModality(Modality.NONE); // Permite mexer na janela principal enquanto essa está aberta
+        stage.initModality(Modality.NONE); // Allows interacting with the main window while this is open
         stage.initStyle(StageStyle.UTILITY);
-        stage.setTitle("⚙ Ajustes");
+        stage.setTitle("⚙ Settings");
 
         AppConfig config = AppConfig.get();
 
@@ -36,28 +36,28 @@ public class SettingsWindow {
         root.setPadding(new Insets(20));
         root.setStyle("-fx-background-color: #1a1a20; -fx-text-fill: white;");
 
-        // 1. Slider: Tempo de Vida
-        root.getChildren().add(createSliderControl("Tempo de Vida (s)",
+        // 1. Slider: Star Lifespan
+        root.getChildren().add(createSliderControl("Star Lifespan (s)",
                 1.0, 60.0, config.getStarLifeSeconds(),
                 newValue -> config.setStarLifeSeconds(newValue)));
 
-        // 2. Slider: Repulsão (Espaço entre estrelas)
-        root.getChildren().add(createSliderControl("Força de Repulsão",
+        // 2. Slider: Repulsion (Space between stars)
+        root.getChildren().add(createSliderControl("Repulsion Force",
                 100.0, 20000.0, config.getRepulsionForce(),
                 newValue -> config.setRepulsionForce(newValue)));
 
-        // 3. Slider: Atração (Gravidade do centro)
-        root.getChildren().add(createSliderControl("Gravidade Central",
+        // 3. Slider: Attraction (Center gravity)
+        root.getChildren().add(createSliderControl("Central Gravity",
                 0.001, 0.05, config.getAttractionForce(),
                 newValue -> config.setAttractionForce(newValue)));
 
-        // 4. Slider: Velocidade Máxima
-        root.getChildren().add(createSliderControl("Velocidade Máxima",
+        // 4. Slider: Max Speed
+        root.getChildren().add(createSliderControl("Max Speed",
                 1.0, 50.0, config.getMaxPhysicsSpeed(),
                 newValue -> config.setMaxPhysicsSpeed(newValue)));
 
-        // Botão Salvar
-        Button btnSave = new Button("💾 Salvar Definitivamente");
+        // Save Button
+        Button btnSave = new Button("💾 Save Permanently");
         btnSave.setStyle("-fx-padding: 10px; -fx-font-size: 12px; -fx-background-color: #2a7f2a; -fx-text-fill: white;");
         btnSave.setOnAction(e -> {
             config.save();
@@ -72,8 +72,15 @@ public class SettingsWindow {
     }
 
     /**
-     * Cria um controle com Label + Slider.
-     * Atualiza a label em tempo real enquanto o slider é movido.
+     * Creates a control with a Label and a Slider.
+     * Updates the label in real-time as the slider is moved.
+     *
+     * @param labelText The text for the label.
+     * @param min       Minimum value.
+     * @param max       Maximum value.
+     * @param current   Current value.
+     * @param listener  Callback for value changes.
+     * @return A VBox containing the label and slider.
      */
     private static VBox createSliderControl(String labelText, double min, double max, double current, SliderListener listener) {
         Label label = new Label(labelText + ": " + String.format("%.3f", current));
@@ -85,7 +92,7 @@ public class SettingsWindow {
         slider.setShowTickMarks(false);
         slider.setStyle("-fx-control-inner-background: #333; -fx-text-fill: white;");
 
-        // Listener em tempo real - atualiza conforme você move o slider
+        // Real-time listener - updates as the slider moves
         slider.valueProperty().addListener((obs, oldVal, newVal) -> {
             double val = newVal.doubleValue();
             label.setText(labelText + ": " + String.format("%.3f", val));
@@ -96,11 +103,14 @@ public class SettingsWindow {
     }
 
     /**
-     * Interface funcional para callbacks do slider.
+     * Functional interface for slider callbacks.
      */
     @FunctionalInterface
     interface SliderListener {
+        /**
+         * Called when the slider value changes.
+         * @param value The new value.
+         */
         void onChange(double value);
     }
 }
-

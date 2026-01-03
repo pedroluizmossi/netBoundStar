@@ -5,91 +5,90 @@ import com.pedro.netboundstar.view.StarNode;
 import java.util.Collection;
 
 /**
- * Motor de Física para Constelação de Nós.
- * Implementa duas leis da física:
- * 1. Lei de Coulomb (Repulsão): Nós se repelem entre si
- * 2. Lei de Hooke (Atração): Nós são atraídos para o centro
+ * Physics Engine for the Node Constellation.
+ * Implements two physical laws:
+ * 1. Coulomb's Law (Repulsion): Nodes repel each other.
+ * 2. Hooke's Law (Attraction): Nodes are attracted to the center.
  *
- * Resultado: Uma órbita harmoniosa sem sobreposição de texto
+ * Result: A harmonious orbit without text overlapping.
  *
- * NOTA: Os parâmetros de força são lidos dinamicamente do AppConfig,
- * permitindo ajuste em tempo real via UI.
+ * NOTE: Force parameters are read dynamically from AppConfig,
+ * allowing real-time adjustment via the UI.
  */
 public class PhysicsEngine {
 
     /**
-     * Atualiza as forças físicas e posições de todos os nós.
-     * Deve ser chamado a cada frame antes de renderizar.
+     * Updates physical forces and positions for all nodes.
+     * Should be called every frame before rendering.
      *
-     * @param nodes Coleção de todos os nós ativos
-     * @param centerX Posição X do centro (seu computador)
-     * @param centerY Posição Y do centro (seu computador)
+     * @param nodes   Collection of all active nodes.
+     * @param centerX X position of the center.
+     * @param centerY Y position of the center.
      */
     public void update(Collection<StarNode> nodes, double centerX, double centerY) {
 
-        // Lê os valores de configuração (dinâmicos)
+        // Read dynamic configuration values
         AppConfig config = AppConfig.get();
         double repulsionForce = config.getRepulsionForce();
         double attractionForce = config.getAttractionForce();
         double maxSpeed = config.getMaxPhysicsSpeed();
 
-        // 1. REPULSÃO (Nó contra Nó)
-        // Isso é O(N^2), cuidado com muitos nós (+500 pode pesar)
+        // 1. REPULSION (Node vs Node)
+        // Complexity is O(N^2).
         for (StarNode nodeA : nodes) {
-            if (nodeA.isFrozen) continue; // PULA NÓ CONGELADO
+            if (nodeA.isFrozen) continue; // Skip frozen nodes
 
             for (StarNode nodeB : nodes) {
-                if (nodeA == nodeB) continue; // Não repelir a si mesmo
+                if (nodeA == nodeB) continue; // Do not repel self
 
-                // Vetor de A para B
+                // Vector from B to A
                 double dx = nodeA.x - nodeB.x;
                 double dy = nodeA.y - nodeB.y;
                 double distSq = dx * dx + dy * dy;
 
-                // Evita divisão por zero e forças infinitas se estiverem muito perto
+                // Avoid division by zero and infinite forces
                 if (distSq < 1.0) distSq = 1.0;
 
-                // Força inversamente proporcional à distância (quanto mais perto, mais forte)
+                // Force inversely proportional to distance
                 double force = repulsionForce / distSq;
 
-                // Normaliza o vetor para ficar com magnitude 1
+                // Normalize vector
                 double dist = Math.sqrt(distSq);
                 double fx = (dx / dist) * force;
                 double fy = (dy / dist) * force;
 
-                // Aplica a força de repulsão
+                // Apply repulsion force
                 nodeA.vx += fx;
                 nodeA.vy += fy;
             }
         }
 
-        // 2. ATRAÇÃO (Gravidade Central)
+        // 2. ATTRACTION (Central Gravity)
         for (StarNode node : nodes) {
             if (node.isFrozen) {
-                // Se congelado, zera a velocidade para garantir que pare imediatamente
+                // If frozen, zero out velocity
                 node.vx = 0;
                 node.vy = 0;
-                continue; // PULA
+                continue;
             }
 
-            // Vetor apontando do nó para o centro
+            // Vector pointing from node to center
             double dx = centerX - node.x;
             double dy = centerY - node.y;
 
-            // Puxa suavemente para o centro (proporcional à distância - Lei de Hooke)
+            // Pull gently towards the center (Hooke's Law)
             node.vx += dx * attractionForce;
             node.vy += dy * attractionForce;
 
-            // Limita a velocidade máxima (Segurança: previne teletransporte)
+            // Limit maximum speed (Safety: prevents teleportation)
             double speed = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
             if (speed > maxSpeed) {
                 node.vx = (node.vx / speed) * maxSpeed;
                 node.vy = (node.vy / speed) * maxSpeed;
             }
 
-            // Aplica o movimento final
+            // Apply final movement
             node.applyPhysics();
         }
     }
 }
-

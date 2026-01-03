@@ -1,41 +1,41 @@
-# Guia de Setup - Fase 9: Geolocalização & Bandeiras 🌍
+# Setup Guide - Phase 9: Geolocation & Flags 🌍
 
-## O que você precisa fazer manualmente:
+## Manual steps you must perform:
 
-### 1. Baixar o Banco de Dados MaxMind (GeoLite2-Country.mmdb)
+### 1. Download the MaxMind Database (GeoLite2-Country.mmdb)
 
-**Passos:**
-1. Visite: https://www.maxmind.com/en/geolite2-free-geolocation-database
-2. Faça cadastro (gratuito) ou faça login
-3. Download o arquivo **GeoLite2 Country** (arquivo `.mmdb`)
-4. Crie a pasta: `netBoundStar-view/src/main/resources/geo/`
-5. Coloque o arquivo lá com o nome exato: `GeoLite2-Country.mmdb`
+**Steps:**
+1. Visit: https://www.maxmind.com/en/geolite2-free-geolocation-database
+2. Create an account (free) or sign in
+3. Download the **GeoLite2 Country** file (`.mmdb`)
+4. Create the folder: `netBoundStar-view/src/main/resources/geo/`
+5. Place the file there with the exact name: `GeoLite2-Country.mmdb`
 
-**Resultado:**
+**Result:**
 ```
 netBoundStar-view/src/main/resources/geo/GeoLite2-Country.mmdb
 ```
 
-### 2. Baixar Ícones de Bandeiras
+### 2. Download Flag Icons
 
-**Passos:**
-1. Baixe um pacote de flag icons (recomendação):
-   - GitHub: https://github.com/lipis/flag-icons (versão SVG OU PNG)
-   - Ou procure por "Flag Icons ISO 3166" no Google
-2. Você precisa de ícones nomeados com **2 letras** (maiúsculas ou minúsculas):
-   - `br.svg` ou `BR.svg` ou `br.png` ou `BR.png` (Brasil)
-   - `us.svg` ou `US.svg` ou `us.png` ou `US.png` (USA)
-   - `de.svg` ou `DE.svg` ou `de.png` ou `DE.png` (Germany)
-   - `fr.svg` ou `FR.svg` ou `fr.png` ou `FR.png` (France)
-   - `jp.svg` ou `JP.svg` ou `jp.png` ou `JP.png` (Japan)
+**Steps:**
+1. Download a package of flag icons (recommended):
+   - GitHub: https://github.com/lipis/flag-icons (SVG or PNG versions)
+   - Or search for "Flag Icons ISO 3166" on the web
+2. You need icons named with **2 letters** (uppercase or lowercase):
+   - `br.svg` or `BR.svg` or `br.png` or `BR.png` (Brazil)
+   - `us.svg` or `US.svg` or `us.png` or `US.png` (USA)
+   - `de.svg` or `DE.svg` or `de.png` or `DE.png` (Germany)
+   - `fr.svg` or `FR.svg` or `fr.png` or `FR.png` (France)
+   - `jp.svg` or `JP.svg` or `jp.png` or `JP.png` (Japan)
    - ...etc
-3. **Formato**: Pode ser **SVG** (recomendado, menor tamanho) ou **PNG**
-4. **Tamanho recomendado**: Para PNG: 24x24px ou 32x32px
-5. **Case**: Não importa se é maiúscula ou minúscula (o sistema tenta ambas)
-6. Crie a pasta: `netBoundStar-view/src/main/resources/flags/`
-7. Coloque todos os arquivos lá dentro
+3. **Format**: SVG (recommended) or PNG
+4. **Recommended size**: For PNG: 24x24px or 32x32px
+5. **Case**: Case does not matter (the system tries both)
+6. Create the folder: `netBoundStar-view/src/main/resources/flags/`
+7. Put all files there
 
-**Resultado (exemplo com minúsculas):**
+**Result (example with lowercase names):**
 ```
 netBoundStar-view/src/main/resources/flags/
 ├── br.svg
@@ -44,10 +44,10 @@ netBoundStar-view/src/main/resources/flags/
 ├── fr.svg
 ├── jp.svg
 ├── ru.svg
-└── ... (quantos mais, melhor!)
+└── ... (as many as you want)
 ```
 
-**OU com PNG:**
+**OR with PNG:**
 ```
 netBoundStar-view/src/main/resources/flags/
 ├── br.png
@@ -59,7 +59,7 @@ netBoundStar-view/src/main/resources/flags/
 └── ...
 ```
 
-**OU misturado:**
+**OR mixed:**
 ```
 netBoundStar-view/src/main/resources/flags/
 ├── br.svg
@@ -70,50 +70,49 @@ netBoundStar-view/src/main/resources/flags/
 └── ...
 ```
 
-## Estrutura Final Esperada:
+## Expected Final Structure:
 
 ```
 netBoundStar-view/src/main/resources/
 ├── geo/
-│   └── GeoLite2-Country.mmdb (opcional, mas recomendado)
+│   └── GeoLite2-Country.mmdb (optional, but recommended)
 └── flags/
-    ├── BR.svg (ou BR.png)
-    ├── US.svg (ou US.png)
-    ├── DE.svg (ou DE.png)
-    ├── FR.svg (ou FR.png)
-    ├── CN.svg (ou CN.png)
-    ├── AU.svg (ou AU.png)
-    └── ... (vários countries)
+    ├── BR.svg (or BR.png)
+    ├── US.svg (or US.png)
+    ├── DE.svg (or DE.png)
+    ├── FR.svg (or FR.png)
+    ├── CN.svg (or CN.png)
+    ├── AU.svg (or AU.png)
+    └── ... (more countries)
 ```
 
-## Como o Sistema Funciona:
+## How the system works:
 
-1. **Ao iniciar**, o `GeoService` carrega o arquivo `.mmdb` em memória
-2. **Para cada IP remoto**, o sistema:
-   - Resolve o hostname via DNS (já existente)
-   - Resolve o país via GeoIP (MaxMind)
-   - Carrega a bandeira correspondente do cache
-3. **No canvas**, em vez de uma bolinha branca, desenha a bandeira
-4. **Se não encontrar** a bandeira ou o banco de dados, volta para bolinha branca (fallback)
+1. **On startup**, `GeoService` loads the `.mmdb` file into memory
+2. **For each remote IP**, the system:
+   - Resolves the hostname via DNS
+   - Resolves the country via GeoIP (MaxMind)
+   - Loads the corresponding flag from the cache
+3. **On the canvas**, instead of a white dot, it draws the flag
+4. **If it cannot find** the flag or the database, it falls back to a white dot (no error)
 
-## Verificação:
+## Verification:
 
-Após colocar os arquivos, quando você rodar a aplicação:
-- Veja no console se aparece: `✓ GeoLite2 carregado com sucesso!`
-- Se aparecer `⚠ AVISO: Arquivo GeoLite2-Country.mmdb não encontrado`, coloque o arquivo na pasta certa
-- As bandeiras aparecerão automaticamente conforme os IPs forem resolvidos
+After placing the files, when you run the application:
+- Check the console for: `✓ GeoLite2 loaded successfully!`
+- If you see `⚠ WARNING: GeoLite2-Country.mmdb file not found`, put the file in the correct folder
+- Flags will appear automatically as IPs are resolved
 
-## Dicas:
+## Tips:
 
-- Você não precisa de TODOS os países - coloque os que quiser
-- As bandeiras mais comuns são: us, br, de, fr, gb, jp, ru, cn, au, ca
-- **SVG é preferível a PNG** (menor tamanho, melhor qualidade em qualquer resolução)
-- **Case não importa**: `br.svg`, `BR.svg`, `Br.svg` - tudo funciona!
-- O sistema tenta carregar SVG primeiro, depois PNG
-- O sistema tenta maiúscula primeiro, depois minúscula
-- Se um país não tiver bandeira, mostra bolinha branca (sem erro)
-- O cache da memória evita carregar a mesma imagem várias vezes
-- Você pode misturar formatos: `br.svg`, `US.png`, `de.svg` (tudo junto funciona!)
+- You do not need ALL countries - add whichever you want
+- Common flags: us, br, de, fr, gb, jp, ru, cn, au, ca
+- **SVG is preferable to PNG** (smaller size, better quality at any resolution)
+- **Case does not matter**: `br.svg`, `BR.svg`, `Br.svg` - all work!
+- The system tries SVG first, then PNG
+- The system tries uppercase first, then lowercase
+- If a country has no flag, it shows a white dot (no error)
+- The in-memory cache avoids loading the same image multiple times
+- You can mix formats: `br.svg`, `US.png`, `de.svg` (all together work!)
 
-Boa sorte! 🌍🚀
-
+Good luck! 🌍🚀

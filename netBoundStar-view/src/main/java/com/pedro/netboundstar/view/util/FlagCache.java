@@ -6,17 +6,18 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Cache de Bandeiras em Memória.
- * Carrega arquivos PNG de bandeiras dos recursos.
+ * In-memory Flag Cache.
+ * Loads PNG flag files from resources.
  */
 public class FlagCache {
     private static final Map<String, Image> cache = new ConcurrentHashMap<>();
     private static final Image UNKNOWN_FLAG = null;
 
     /**
-     * Obtém a imagem da bandeira do país.
-     * @param countryCode Código ISO de 2 letras (ex: "BR", "US")
-     * @return Image ou null se não encontrar
+     * Gets the country flag image.
+     *
+     * @param countryCode ISO 2-letter country code (e.g., "BR", "US").
+     * @return The Image or null if not found.
      */
     public static Image get(String countryCode) {
         if (countryCode == null || countryCode.isEmpty()) return UNKNOWN_FLAG;
@@ -24,20 +25,23 @@ public class FlagCache {
         return cache.computeIfAbsent(countryCode, code -> {
             String lower = code.toLowerCase();
 
-            // Tenta carregar PNG
+            // Try to load PNG
             Image img = tryLoadImage("/flags/" + lower + ".png");
             if (img != null) {
-                System.out.println("✓ Bandeira carregada: " + lower + ".png");
+                System.out.println("✓ Flag loaded: " + lower + ".png");
                 return img;
             }
 
-            System.out.println("⚠ Bandeira não encontrada: " + code);
+            System.out.println("⚠ Flag not found: " + code);
             return UNKNOWN_FLAG;
         });
     }
 
     /**
-     * Tenta carregar uma imagem PNG do caminho especificado.
+     * Attempts to load a PNG image from the specified path.
+     *
+     * @param path The resource path.
+     * @return The Image or null if loading fails.
      */
     private static Image tryLoadImage(String path) {
         try {
@@ -49,17 +53,24 @@ public class FlagCache {
                 }
             }
         } catch (Exception e) {
-            System.err.println("✗ Erro ao carregar " + path + ": " + e.getMessage());
+            System.err.println("✗ Error loading " + path + ": " + e.getMessage());
         }
         return null;
     }
 
+    /**
+     * Clears the flag cache.
+     */
     public static void clear() {
         cache.clear();
     }
 
+    /**
+     * Returns the number of flags in the cache.
+     *
+     * @return Cache size.
+     */
     public static int size() {
         return cache.size();
     }
 }
-

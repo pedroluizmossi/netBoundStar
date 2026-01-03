@@ -14,13 +14,22 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 
+/**
+ * Service responsible for sniffing network traffic using Pcap4j.
+ * It runs in a separate thread and publishes captured packets to the TrafficBridge.
+ */
 public class SnifferService implements Runnable {
 
     private static final Logger logger = LoggerFactory.getLogger(SnifferService.class);
 
-    // Tamanho máximo do pacote a capturar (65536 bytes cobre tudo)
+    /**
+     * Maximum packet size to capture (65536 bytes covers most cases).
+     */
     private static final int SNAPLEN = 65536;
-    // Tempo limite de leitura em milissegundos
+
+    /**
+     * Read timeout in milliseconds.
+     */
     private static final int READ_TIMEOUT = 10;
 
     private volatile boolean running = true;
@@ -28,19 +37,19 @@ public class SnifferService implements Runnable {
     @Override
     public void run() {
         try {
-            // 1. Encontra a interface
+            // 1. Find the active network interface
             PcapNetworkInterface nif = NetworkSelector.findActiveInterface();
 
-            // 2. Abre o handle (a "torneira" dos dados)
-            // Promiscuous mode = true (para ver tudo o que passa)
+            // 2. Open the handle for live capture
+            // Promiscuous mode = true to see all traffic on the segment
             try (PcapHandle handle = nif.openLive(SNAPLEN, PcapNetworkInterface.PromiscuousMode.PROMISCUOUS, READ_TIMEOUT)) {
 
-                logger.info("A iniciar captura em: {}", nif.getDescription());
+                logger.info("Starting capture on: {}", nif.getDescription());
 
-                // 3. Loop de captura
+                // 3. Capture loop
                 while (running && handle.isOpen()) {
                     try {
-                        // Pega o próximo pacote
+                        // Get the next packet
                         Packet packet = handle.getNextPacket();
 
                         if (packet != null) {
@@ -49,21 +58,24 @@ public class SnifferService implements Runnable {
                     } catch (NotOpenException e) {
                         break;
                     } catch (Exception e) {
-                        logger.error("Erro ao processar pacote: {}", e.getMessage());
+                        logger.error("Error processing packet: {}", e.getMessage());
                     }
                 }
             }
 
         } catch (PcapNativeException e) {
-            logger.error("Falha ao iniciar o motor de captura. Tem permissões de Admin/Root?", e);
+            logger.error("Failed to start capture engine. Do you have Admin/Root permissions?", e);
         }
     }
 
     /**
-     * Transforma o pacote bruto da biblioteca Pcap4j no nosso PacketEvent limpo.
+     * Transforms a raw Pcap4j packet into a clean PacketEvent and publishes it.
+     * Currently focuses on IPv4 packets.
+     *
+     * @param packet The raw packet captured from the network.
      */
     private void processPacket(Packet packet) {
-        // Só nos interessam pacotes IPv4 por enquanto (para simplificar)
+        // Only interested in IPv4 packets for now
         if (packet.contains(IpV4Packet.class)) {
             IpV4Packet ipV4Packet = packet.get(IpV4Packet.class);
 
@@ -71,7 +83,7 @@ public class SnifferService implements Runnable {
             String dstIp = ipV4Packet.getHeader().getDstAddr().getHostAddress();
             int length = packet.length();
 
-            // Extraindo Portas e Protocolo
+            // Extract Ports and Protocol
             int srcPort = 0;
             int dstPort = 0;
             Protocol protocol = Protocol.OTHER;
@@ -88,7 +100,7 @@ public class SnifferService implements Runnable {
                 protocol = Protocol.UDP;
             }
 
-            // Cria o evento imutável com os novos dados
+            // Create immutable event with extracted data
             PacketEvent event = new PacketEvent(
                 srcIp, srcPort,
                 dstIp, dstPort,
@@ -96,13 +108,15 @@ public class SnifferService implements Runnable {
                 Instant.now()
             );
 
-            // Publica na ponte para a UI consumir
+            // Publish to the bridge for UI consumption
             TrafficBridge.getInstance().publish(event);
         }
     }
 
+    /**
+     * Stops the capture loop.
+     */
     public void stop() {
         this.running = false;
     }
 }
-

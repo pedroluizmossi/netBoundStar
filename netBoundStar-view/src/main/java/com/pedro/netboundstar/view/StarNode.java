@@ -2,7 +2,6 @@ package com.pedro.netboundstar.view;
 
 import com.pedro.netboundstar.core.AppConfig;
 import com.pedro.netboundstar.core.model.PacketEvent;
-import com.pedro.netboundstar.core.model.Protocol;
 import com.pedro.netboundstar.view.util.DnsService;
 import com.pedro.netboundstar.view.util.FlagCache;
 import com.pedro.netboundstar.view.util.GeoService;
@@ -14,72 +13,120 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
+/**
+ * Represents a network node (star) in the visualization.
+ * Handles its own position, physics velocity, activity level, and particles.
+ */
 public class StarNode {
-    public double x, y;
+    /**
+     * Current X coordinate.
+     */
+    public double x;
+    /**
+     * Current Y coordinate.
+     */
+    public double y;
 
-    // NOVOS CAMPOS: Velocidade vetorial para física
+    /**
+     * X velocity for physics calculations.
+     */
     public double vx = 0;
+    /**
+     * Y velocity for physics calculations.
+     */
     public double vy = 0;
 
+    /**
+     * The IP address of the node.
+     */
     public final String ip;
 
-    // NOVO: Nome de exibição (começa como IP, vira hostname depois)
+    /**
+     * The display name of the node (IP or resolved hostname).
+     */
     public volatile String displayName;
 
+    /**
+     * Activity level (1.0 to 0.0). Determines visibility and decay.
+     */
     public double activity = 1.0;
 
-    // Estado interativo
-    public boolean isHovered = false; // Hover detection
-    public boolean isFrozen = false;  // Click to freeze/unfreeze
+    /**
+     * Whether the mouse is currently hovering over this node.
+     */
+    public boolean isHovered = false;
+    /**
+     * Whether the node is frozen in place by the user.
+     */
+    public boolean isFrozen = false;
 
-    // Dados para tooltip
+    /**
+     * Total bytes transferred by this node.
+     */
     public long totalBytes = 0;
+    /**
+     * Last ports used in communication.
+     */
     public String lastPorts = "N/A";
 
-    // NOVO: Imagem da bandeira (geolocalização)
+    /**
+     * Country flag image for geolocation.
+     */
     public Image flagImage = null;
 
-    // Lista de partículas ativas nesta conexão
+    /**
+     * List of active particles traveling to/from this node.
+     */
     private final List<PacketParticle> particles = new ArrayList<>();
 
     private static final Random random = new Random();
 
+    /**
+     * Constructs a new StarNode.
+     *
+     * @param ip      The IP address.
+     * @param centerX Initial center X for positioning.
+     * @param centerY Initial center Y for positioning.
+     */
     public StarNode(String ip, double centerX, double centerY) {
         this.ip = ip;
-        this.displayName = ip; // Padrão inicial
+        this.displayName = ip;
 
-        // Posiciona a estrela em uma direção aleatória ao redor do centro
+        // Position the star in a random direction around the center
         double angle = random.nextDouble() * 2 * Math.PI;
         double distance = 200 + random.nextDouble() * 150;
         this.x = centerX + Math.cos(angle) * distance;
         this.y = centerY + Math.sin(angle) * distance;
 
-        // DICA: Começar com uma velocidade aleatória pequena evita que
-        // dois nós criados no mesmo lugar fiquem "grudados" (divisão por zero na física)
+        // Start with a small random velocity to avoid overlapping
         this.vx = (random.nextDouble() - 0.5) * 2.0;
         this.vy = (random.nextDouble() - 0.5) * 2.0;
 
-        // DISPARA A RESOLUÇÃO DE DNS ASSIM QUE NASCE
+        // Trigger DNS resolution
         DnsService.resolve(ip, resolvedName -> {
             this.displayName = resolvedName;
         });
 
-        // DISPARA A GEOLOCALIZAÇÃO (NOVO)
+        // Trigger Geolocation resolution
         GeoService.resolveCountry(ip, isoCode -> {
-            // Quando descobrir o país, carrega a imagem do cache
             this.flagImage = FlagCache.get(isoCode);
         });
     }
 
-    // Agora recebe o evento inteiro para extrair informações detalhadas
+    /**
+     * Pulses the node when a new packet event occurs.
+     *
+     * @param event   The packet event.
+     * @param inbound true if inbound, false if outbound.
+     */
     public void pulse(PacketEvent event, boolean inbound) {
         this.activity = 1.0;
-        // Adiciona uma nova partícula visual viajando na linha
+        // Add a new visual particle
         particles.add(new PacketParticle(event.protocol(), inbound));
 
-        // Acumula dados para tooltip
+        // Accumulate data for tooltip
         this.totalBytes += event.payloadSize();
-        // Formata a string de portas
+        // Format port string
         if (inbound) {
             this.lastPorts = event.sourcePort() + " -> " + event.targetPort();
         } else {
@@ -87,13 +134,16 @@ public class StarNode {
         }
     }
 
+    /**
+     * Updates the node's state (activity decay and particles).
+     */
     public void update() {
-        // Mudança aqui: decaimento dinâmico baseado em AppConfig
+        // Dynamic decay based on AppConfig
         if (activity > 0) {
             activity -= AppConfig.get().getDecayRatePerFrame();
         }
 
-        // Atualiza todas as partículas e remove as que chegaram ao destino
+        // Update all particles and remove finished ones
         Iterator<PacketParticle> it = particles.iterator();
         while (it.hasNext()) {
             PacketParticle p = it.next();
@@ -104,54 +154,69 @@ public class StarNode {
         }
     }
 
-    // Método dedicado para desenhar as partículas desta estrela
+    /**
+     * Draws the particles associated with this node.
+     *
+     * @param gc      The GraphicsContext to draw on.
+     * @param centerX The center X of the visualization.
+     * @param centerY The center Y of the visualization.
+     */
     public void drawParticles(GraphicsContext gc, double centerX, double centerY) {
         for (PacketParticle p : particles) {
             double startX, startY, endX, endY;
 
             if (p.inbound) {
-                // Download: Estrela -> Centro
+                // Download: Star -> Center
                 startX = this.x; startY = this.y;
                 endX = centerX; endY = centerY;
             } else {
-                // Upload: Centro -> Estrela
+                // Upload: Center -> Star
                 startX = centerX; startY = centerY;
                 endX = this.x; endY = this.y;
             }
 
-            // Interpolação Linear (Lerp) para achar a posição atual
+            // Linear interpolation (Lerp) for current position
             double currentX = startX + (endX - startX) * p.progress;
             double currentY = startY + (endY - startY) * p.progress;
 
-            // Desenha a partícula
+            // Draw the particle
             gc.setFill(p.color);
-            // Tamanho fixo ou variável? Vamos começar com 4px
             gc.fillOval(currentX - 2, currentY - 2, 4, 4);
         }
     }
 
-    // NOVO: Método que a Engine de Física vai chamar para aplicar o movimento calculado
+    /**
+     * Applies physics movement to the node.
+     */
     public void applyPhysics() {
         this.x += this.vx;
         this.y += this.vy;
 
-        // Atrito (Friction): Reduz a velocidade gradualmente para o nó não deslizar para sempre
-        // 0.90 significa que ele perde 10% da velocidade a cada frame (efeito de "atmosfera")
+        // Friction: gradually reduce velocity
         this.vx *= 0.90;
         this.vy *= 0.90;
     }
 
-    // NOVO: Método de detecção de colisão (Hit Testing) para hover/click
+    /**
+     * Checks if a point (mouse coordinates) is within the node's hit area.
+     *
+     * @param mx Mouse X.
+     * @param my Mouse Y.
+     * @return true if the point is within the node.
+     */
     public boolean contains(double mx, double my) {
         double dx = this.x - mx;
         double dy = this.y - my;
-        // Raio de 12px para facilitar clicar (um pouco maior que o desenho de 6px)
+        // 12px radius for easier clicking
         return (dx * dx + dy * dy) < (12 * 12);
     }
 
+    /**
+     * Determines if the node is "dead" (inactive and no particles).
+     *
+     * @return true if dead.
+     */
     public boolean isDead() {
-        // Só morre se estiver inativa E sem partículas viajando
         return activity <= 0 && particles.isEmpty();
     }
 }
-

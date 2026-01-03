@@ -15,6 +15,10 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+/**
+ * Custom Canvas for rendering the network visualization.
+ * Handles the animation loop, state updates, and rendering of stars, particles, and HUD.
+ */
 public class NetworkCanvas extends Canvas {
 
     private final GraphicsContext gc;
@@ -22,47 +26,59 @@ public class NetworkCanvas extends Canvas {
 
     private final Map<String, StarNode> stars = new HashMap<>();
 
-    // Variável para controlar o "inchaço" do centro quando há tráfego
+    /**
+     * Controls the "swelling" of the center core when traffic is detected.
+     */
     private double centerHeat = 0.0;
 
-    // Motor de Física para movimento dos nós
+    /**
+     * Physics engine for node movement.
+     */
     private final PhysicsEngine physics = new PhysicsEngine();
 
-    // Rastreamento do mouse para hover e click
+    // Mouse tracking for hover and click interactions
     private double mouseX = -1000;
     private double mouseY = -1000;
     private StarNode hoveredNode = null;
 
-    // Gerenciador de Estatísticas de Tráfego
+    /**
+     * Traffic statistics manager.
+     */
     private final StatsManager stats = new StatsManager();
 
+    /**
+     * Constructs a new NetworkCanvas with the specified dimensions.
+     *
+     * @param width  The width of the canvas.
+     * @param height The height of the canvas.
+     */
     public NetworkCanvas(double width, double height) {
         super(width, height);
         this.gc = this.getGraphicsContext2D();
         this.bridge = TrafficBridge.getInstance();
 
-        // Listener de MOVIMENTO (Hover)
+        // Mouse movement listener (Hover)
         this.setOnMouseMoved(e -> {
             this.mouseX = e.getX();
             this.mouseY = e.getY();
         });
 
-        // Listener de CLIQUE (Freeze)
+        // Mouse click listener (Freeze/Unfreeze)
         this.setOnMouseClicked(e -> {
             for (StarNode node : stars.values()) {
                 if (node.contains(e.getX(), e.getY())) {
-                    node.isFrozen = !node.isFrozen; // Inverte o estado
-                    break; // Achou, pode parar
+                    node.isFrozen = !node.isFrozen;
+                    break;
                 }
             }
         });
 
-        // (Opcional) Configurar tempo de vida das estrelas se desejar
-        // AppConfig.get().setStarLifeSeconds(10.0);
-
         startLoop();
     }
 
+    /**
+     * Starts the animation loop.
+     */
     private void startLoop() {
         new AnimationTimer() {
             @Override
@@ -73,13 +89,20 @@ public class NetworkCanvas extends Canvas {
         }.start();
     }
 
-    // Método auxiliar para detectar direção
+    /**
+     * Determines if a packet is inbound based on the source IP.
+     *
+     * @param sourceIp The source IP address.
+     * @return true if inbound, false if outbound.
+     */
     private boolean isInbound(String sourceIp) {
-        // Se o IP de origem NÃO for local, é tráfego entrando (Inbound)
-        // Se o IP de origem FOR local (192.168...), é tráfego saindo (Outbound)
+        // If source IP is NOT local, it's inbound traffic.
         return !sourceIp.startsWith("192.168.") && !sourceIp.startsWith("10.") && !sourceIp.equals("127.0.0.1");
     }
 
+    /**
+     * Updates the state of all elements in the visualization.
+     */
     private void updateState() {
         double centerX = getWidth() / 2;
         double centerY = getHeight() / 2;
@@ -88,12 +111,12 @@ public class NetworkCanvas extends Canvas {
 
         PacketEvent event;
         while ((event = bridge.poll()) != null) {
-            // Aumenta o "Calor" do centro quando chega pacote (configurável via AppConfig)
+            // Increase center heat when a packet arrives
             centerHeat = Math.min(centerHeat + config.getCenterHeatIncrement(), config.getCenterHeatMax());
 
             boolean inbound = isInbound(event.sourceIp());
 
-            // Se for Inbound, o remoto é o Source. Se for Outbound, o remoto é o Target.
+            // If inbound, the remote is the source. If outbound, the remote is the target.
             String remoteIp = inbound ? event.sourceIp() : event.targetIp();
 
             StarNode node = stars.get(remoteIp);
@@ -102,39 +125,38 @@ public class NetworkCanvas extends Canvas {
                 stars.put(remoteIp, node);
             }
 
-            // Alimenta estatísticas de tráfego
+            // Update traffic statistics
             stats.process(event, inbound);
 
-            // Passamos o evento inteiro para extrair todas as informações
+            // Pulse the node with the packet event
             node.pulse(event, inbound);
         }
 
-        // Atualiza relógio de velocidade (calcula velocidade a cada segundo)
+        // Update stats tick (calculates speed every second)
         stats.tick();
 
-        // Efeito elástico do centro: ele tenta voltar para o tamanho original (0)
-        // Usa taxa configurável do AppConfig
+        // Center elastic effect: decay heat back to 0
         centerHeat *= config.getCenterHeatDecay();
 
-        // 1. Aplica as Forças Físicas e Move tudo
+        // 1. Apply physical forces and move nodes
         physics.update(stars.values(), centerX, centerY);
 
-        // LÓGICA DE HOVER - Atualiza estado isHovered de todos os nós
+        // Hover logic - update isHovered state for all nodes
         hoveredNode = null;
         for (StarNode node : stars.values()) {
             if (node.contains(mouseX, mouseY)) {
                 node.isHovered = true;
-                hoveredNode = node; // Guarda para desenhar o tooltip
+                hoveredNode = node;
             } else {
                 node.isHovered = false;
             }
         }
 
-        // 2. Atualiza estados lógicos (Decaimento, Partículas, Morte)
+        // 2. Update logical states (decay, particles, death)
         Iterator<Map.Entry<String, StarNode>> it = stars.entrySet().iterator();
         while (it.hasNext()) {
             StarNode star = it.next().getValue();
-            star.update(); // Isso cuida da vida (activity) e partículas
+            star.update();
 
             if (star.isDead()) {
                 it.remove();
@@ -142,158 +164,167 @@ public class NetworkCanvas extends Canvas {
         }
     }
 
+    /**
+     * Renders all elements to the canvas.
+     */
     private void render() {
         double w = getWidth();
         double h = getHeight();
         double centerX = w / 2;
         double centerY = h / 2;
 
-        // Limpa Tela
+        // Clear screen
         gc.setFill(Color.rgb(10, 10, 15));
         gc.fillRect(0, 0, w, h);
 
-        // 1. Desenha as linhas de conexão (Camada de trás)
+        // 1. Draw connection lines (Background layer)
         gc.setLineWidth(1.0);
         for (StarNode star : stars.values()) {
             gc.setStroke(Color.rgb(100, 200, 255, Math.max(0, star.activity * 0.2)));
             gc.strokeLine(centerX, centerY, star.x, star.y);
         }
 
-        // 2. Desenha as partículas (Camada do meio - Onde a mágica acontece)
+        // 2. Draw particles (Middle layer)
         for (StarNode star : stars.values()) {
             star.drawParticles(gc, centerX, centerY);
         }
 
-        // 3. Desenha as estrelas e TEXTO (IP ou Hostname) com indicadores
-        gc.setFont(new Font("Consolas", 12)); // Fonte Monospaced fica mais "Hacker"
+        // 3. Draw stars and text (IP or Hostname) with indicators
+        gc.setFont(new Font("Consolas", 12));
         for (StarNode star : stars.values()) {
             double opacity = Math.max(0, star.activity);
 
-            // Indicador de CONGELADO (Círculo Ciano)
+            // Frozen indicator (Cyan circle)
             if (star.isFrozen) {
                 gc.setStroke(Color.CYAN);
                 gc.setLineWidth(2);
                 gc.strokeOval(star.x - 10, star.y - 10, 20, 20);
             }
 
-            // Indicador de HOVER (Círculo Amarelo)
+            // Hover indicator (Yellow circle)
             if (star.isHovered) {
                 gc.setStroke(Color.YELLOW);
                 gc.setLineWidth(2);
                 gc.strokeOval(star.x - 8, star.y - 8, 16, 16);
             }
 
-            // DESENHO DO NÓ - Com suporte a bandeiras (GEO)
+            // Node drawing - with flag support (GEO)
             if (star.flagImage != null && star.flagImage.getWidth() > 0) {
-                // Se tem bandeira, desenha a imagem com formato circular
-                double size = 20; // Tamanho em pixels na tela
+                double size = 20;
                 double halfSize = size / 2;
                 double flagOpacity = Math.max(0.4, star.activity);
 
-                gc.save(); // Salva o estado atual
+                gc.save();
                 gc.setGlobalAlpha(flagOpacity);
 
-                // Cria clipping circular para fazer a bandeira arredondada
+                // Circular clipping for rounded flags
                 gc.beginPath();
                 gc.arc(star.x, star.y, halfSize, halfSize, 0, 360);
                 gc.closePath();
                 gc.clip();
 
-                // Desenha a imagem (será cortada pelo clip circular)
                 gc.drawImage(star.flagImage, star.x - halfSize, star.y - halfSize, size, size);
 
-                gc.restore(); // Restaura o estado (remove o clip)
+                gc.restore();
 
-                // Opcional: Adiciona borda circular ao redor da bandeira
+                // Optional: circular border around the flag
                 gc.setStroke(Color.rgb(255, 255, 255, flagOpacity * 0.5));
                 gc.setLineWidth(1);
                 gc.strokeOval(star.x - halfSize, star.y - halfSize, size, size);
             } else {
-                // Fallback: Desenha a bolinha branca antiga
+                // Fallback: simple white dot
                 gc.setFill(Color.rgb(255, 255, 255, opacity));
                 gc.fillOval(star.x - 4, star.y - 4, 8, 8);
             }
 
-            // Desenha o IP ou Hostname apenas se a estrela estiver "viva" o suficiente (> 0.2 de atividade)
+            // Draw IP or Hostname if the star is active enough
             if (star.activity > 0.2) {
                 gc.setFill(Color.rgb(200, 200, 200, opacity));
                 gc.fillText(star.displayName, star.x + 10, star.y + 4);
             }
         }
 
-        // 4. O Núcleo Pulsante (Alterado)
-        // O raio base é 30, somamos o "centerHeat" atual
+        // 4. Pulsing Core
         double currentRadius = 30 + centerHeat;
 
-        // Glow externo do núcleo
+        // Outer glow
         gc.setGlobalAlpha(0.3);
         gc.setFill(Color.CYAN);
         gc.fillOval(centerX - currentRadius, centerY - currentRadius, currentRadius * 2, currentRadius * 2);
 
-        // Núcleo sólido interno (cresce menos, só metade do heat)
+        // Solid inner core
         gc.setGlobalAlpha(1.0);
         gc.setFill(Color.WHITE);
         double coreRadius = 5 + (centerHeat * 0.2);
         gc.fillOval(centerX - coreRadius, centerY - coreRadius, coreRadius * 2, coreRadius * 2);
 
-        // HUD Superior
+        // Top HUD
         gc.setFill(Color.LIME);
         gc.setFont(new Font("Consolas", 14));
-        gc.fillText("Conexões Ativas: " + stars.size() + " | Pacotes: " + stats.getTotalPackets(), 20, 30);
+        gc.fillText("Active Connections: " + stars.size() + " | Packets: " + stats.getTotalPackets(), 20, 30);
 
-        // Dashboard inferior com estatísticas
+        // Bottom dashboard with statistics
         drawDashboard();
 
-        // TOOLTIP (Renderizado por cima de tudo)
+        // Tooltip (Rendered on top)
         if (hoveredNode != null) {
             drawTooltip(hoveredNode);
         }
     }
 
-    // --- Dashboard de Estatísticas ---
+    /**
+     * Draws the statistics dashboard at the bottom of the canvas.
+     */
     private void drawDashboard() {
         double w = getWidth();
         double h = getHeight();
         double hudHeight = 100;
         double yStart = h - hudHeight;
 
-        // 1. Fundo do Painel (Vidro escuro)
+        // 1. Panel Background (Dark glass)
         gc.setFill(Color.rgb(10, 15, 20, 0.85));
         gc.fillRect(0, yStart, w, hudHeight);
 
-        // Linha de separação neon
+        // Neon separation line
         gc.setStroke(Color.rgb(0, 255, 255, 0.5));
         gc.setLineWidth(1);
         gc.strokeLine(0, yStart, w, yStart);
 
-        // 2. Velocímetros (Texto Esquerda)
+        // 2. Speedometers
         gc.setFont(new Font("Consolas", 14));
 
-        // Download (Ciano)
+        // Download (Cyan)
         gc.setFill(Color.CYAN);
         gc.fillText("▼ DOWNLOAD", 20, yStart + 25);
         gc.setFont(new Font("Consolas", 22));
         gc.fillText(formatSpeed(stats.getDownSpeed()), 20, yStart + 50);
 
-        // Upload (Laranja)
+        // Upload (Orange)
         gc.setFont(new Font("Consolas", 14));
         gc.setFill(Color.ORANGE);
         gc.fillText("▲ UPLOAD", 180, yStart + 25);
         gc.setFont(new Font("Consolas", 22));
         gc.fillText(formatSpeed(stats.getUpSpeed()), 180, yStart + 50);
 
-        // Totais (Texto Pequeno abaixo)
+        // Totals
         gc.setFont(new Font("Consolas", 11));
         gc.setFill(Color.GRAY);
         gc.fillText("Total: " + formatBytes(stats.getTotalBytesDown()), 20, yStart + 75);
         gc.fillText("Total: " + formatBytes(stats.getTotalBytesUp()), 180, yStart + 75);
 
-        // 3. Gráfico de Histórico (Direita)
+        // 3. History Graph
         drawGraph(350, yStart + 10, w - 370, hudHeight - 20);
     }
 
+    /**
+     * Draws a history graph for traffic.
+     *
+     * @param x The x coordinate.
+     * @param y The y coordinate.
+     * @param w The width.
+     * @param h The height.
+     */
     private void drawGraph(double x, double y, double w, double h) {
-        // Fundo do gráfico
         gc.setFill(Color.rgb(0, 0, 0, 0.3));
         gc.fillRect(x, y, w, h);
         gc.setStroke(Color.rgb(50, 50, 50));
@@ -302,7 +333,7 @@ public class NetworkCanvas extends Canvas {
         var history = stats.getHistory();
         if (history.size() < 2) return;
 
-        // Encontrar o pico para escalar o gráfico (Y-Axis automático)
+        // Find peak for scaling
         long maxVal = 1;
         for (long[] point : history) {
             maxVal = Math.max(maxVal, Math.max(point[0], point[1]));
@@ -310,7 +341,7 @@ public class NetworkCanvas extends Canvas {
 
         double stepX = w / (double) (history.size() - 1);
 
-        // Desenha Linha de Download (Ciano)
+        // Draw Download Line (Cyan)
         gc.setStroke(Color.CYAN);
         gc.setLineWidth(2);
         gc.beginPath();
@@ -323,7 +354,7 @@ public class NetworkCanvas extends Canvas {
         }
         gc.stroke();
 
-        // Desenha Linha de Upload (Laranja)
+        // Draw Upload Line (Orange)
         gc.setStroke(Color.ORANGE);
         gc.setLineWidth(1.5);
         gc.beginPath();
@@ -336,18 +367,28 @@ public class NetworkCanvas extends Canvas {
         }
         gc.stroke();
 
-        // Escala (valor máximo)
+        // Scale (max value)
         gc.setFill(Color.GRAY);
         gc.setFont(new Font("Consolas", 9));
         gc.fillText(formatBytes(maxVal) + "/s", x + 5, y + 12);
     }
 
-    // Utilitário para formatar velocidade (ex: 1.2 MB/s)
+    /**
+     * Formats speed in bytes per second to a human-readable string.
+     *
+     * @param bytesPerSec The speed in bytes per second.
+     * @return Formatted speed string.
+     */
     private String formatSpeed(long bytesPerSec) {
         return formatBytes(bytesPerSec) + "/s";
     }
 
-    // Método auxiliar para formatar bytes em formato legível
+    /**
+     * Formats bytes to a human-readable string (e.g., KB, MB).
+     *
+     * @param bytes The number of bytes.
+     * @return Formatted byte string.
+     */
     private String formatBytes(long bytes) {
         if (bytes < 1024) return bytes + " B";
         int exp = (int) (Math.log(bytes) / Math.log(1024));
@@ -355,29 +396,33 @@ public class NetworkCanvas extends Canvas {
         return String.format("%.1f %sB", bytes / Math.pow(1024, exp), pre);
     }
 
-    // Desenha o tooltip com informações detalhadas do nó
+    /**
+     * Draws a tooltip with detailed information about a node.
+     *
+     * @param node The StarNode to show information for.
+     */
     private void drawTooltip(StarNode node) {
         double bx = node.x + 20;
         double by = node.y - 20;
         double bw = 240;
         double bh = 100;
 
-        // Fundo semi-transparente
+        // Semi-transparent background
         gc.setFill(Color.rgb(20, 20, 30, 0.95));
         gc.setStroke(Color.CYAN);
         gc.setLineWidth(1.5);
         gc.fillRect(bx, by, bw, bh);
         gc.strokeRect(bx, by, bw, bh);
 
-        // Texto das informações
+        // Information text
         gc.setFill(Color.WHITE);
         gc.setFont(new Font("Consolas", 10));
         gc.fillText("Host:  " + node.displayName, bx + 10, by + 18);
         gc.fillText("IP:    " + node.ip, bx + 10, by + 33);
-        gc.fillText("Portas: " + node.lastPorts, bx + 10, by + 48);
-        gc.fillText("Status: " + (node.isFrozen ? "CONGELADO ❄" : "Livre"), bx + 10, by + 63);
+        gc.fillText("Ports: " + node.lastPorts, bx + 10, by + 48);
+        gc.fillText("Status: " + (node.isFrozen ? "FROZEN ❄" : "Free"), bx + 10, by + 63);
 
-        // Dados com destaque
+        // Highlighted data
         gc.setFill(Color.LIME);
         gc.fillText("Total: " + formatBytes(node.totalBytes), bx + 10, by + 83);
     }
@@ -389,4 +434,3 @@ public class NetworkCanvas extends Canvas {
     @Override
     public double prefHeight(double w) { return getHeight(); }
 }
-
