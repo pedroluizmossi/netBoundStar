@@ -7,6 +7,10 @@ NetBoundStar is a traffic engineering tool that transforms packet analysis into 
 Unlike traditional table-based analyzers (such as Wireshark), NetBoundStar focuses on real-time **topology and density**, built on a modern Java 21 architecture optimized for zero-latency.
 
 ---
+<img width="1013" height="769" alt="image" src="https://github.com/user-attachments/assets/b8ca34a9-13e5-42bc-be65-c504e63f69bc" />
+<img width="2546" height="1361" alt="image" src="https://github.com/user-attachments/assets/5ddb3a42-9f5b-4572-aa91-dd987cda0e8e" /> 
+
+
 
 ## Performance Engineering & Optimizations
 
