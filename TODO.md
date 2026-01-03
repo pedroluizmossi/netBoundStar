@@ -59,7 +59,24 @@
 - [x] **Save on Close**: Configurações salvas automaticamente ao fechar a aplicação.
 - [x] **Dynamic Physics**: PhysicsEngine lê valores do AppConfig a cada frame.
 
-## 📊 Fase 8: Estatísticas e Feedback (Próximo)
-- [ ] Adicionar overlay de texto (FPS real, Total de Pacotes, Upload/Download Speed).
-- [ ] Permitir pausar a animação (barra de espaço).
-- [ ] Criar um JAR executável final com todas as dependências.
+## 🎮 Fase 8: Interatividade - Hover & Click (Concluído)
+- [x] **Suporte a Portas**: PacketEvent agora inclui sourcePort e targetPort.
+- [x] **Extração de Portas**: SnifferService extrai portas de pacotes TCP/UDP.
+- [x] **StarNode Interativa**: Estados `isHovered` e `isFrozen` para controle.
+- [x] **Acúmulo de Dados**: Totaliza bytes e formata strings de portas.
+- [x] **Hit Detection**: Método `contains()` para detecção de clique/hover.
+- [x] **PhysicsEngine Respeitador**: Nós congelados não se movem.
+- [x] **Mouse Tracking**: Event listeners para movimento e clique.
+- [x] **Visual Indicators**: Círculo amarelo (hover) e ciano (frozen).
+- [x] **Tooltip Detalhado**: Exibe host, IP, portas, status e total de dados.
+- [x] **Formatação de Bytes**: Converte bytes em KB/MB/GB legível.
+
+## 🌍 Fase 9: Geolocalização & Bandeiras (Em Progresso)
+- [x] **MaxMind GeoIP2**: Dependência Maven adicionada.
+- [x] **FlagCache.java**: Cache em memória de imagens de bandeiras.
+- [x] **GeoService.java**: Resolução assíncrona de IP → País (ISO Code).
+- [x] **StarNode Geo**: Integração com geolocalização.
+- [x] **NetworkCanvas Flags**: Renderização de bandeiras no lugar de bolinhas brancas.
+- [ ] **Manual Setup**: Usuário deve baixar GeoLite2-Country.mmdb e flag icons.
+
+## 📊 Fase 10: Estatísticas em Tempo Real (Próximo)

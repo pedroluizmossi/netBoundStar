@@ -173,9 +173,18 @@ public class NetworkCanvas extends Canvas {
                 gc.strokeOval(star.x - 8, star.y - 8, 16, 16);
             }
 
-            // Desenha o ponto da estrela
-            gc.setFill(Color.rgb(255, 255, 255, opacity));
-            gc.fillOval(star.x - 3, star.y - 3, 6, 6);
+            // DESENHO DO NÓ - Com suporte a bandeiras (GEO)
+            if (star.flagImage != null) {
+                // Se tem bandeira, desenha a imagem
+                double size = 16; // Tamanho em pixels na tela
+                gc.setGlobalAlpha(Math.max(0.3, star.activity)); // Opacidade baseada na atividade
+                gc.drawImage(star.flagImage, star.x - size/2, star.y - size/2, size, size);
+                gc.setGlobalAlpha(1.0); // Reseta opacidade
+            } else {
+                // Fallback: Desenha a bolinha branca antiga
+                gc.setFill(Color.rgb(255, 255, 255, opacity));
+                gc.fillOval(star.x - 3, star.y - 3, 6, 6);
+            }
 
             // Desenha o IP ou Hostname apenas se a estrela estiver "viva" o suficiente (> 0.2 de atividade)
             if (star.activity > 0.2) {

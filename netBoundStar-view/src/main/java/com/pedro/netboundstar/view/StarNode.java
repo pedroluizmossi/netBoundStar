@@ -4,7 +4,10 @@ import com.pedro.netboundstar.core.AppConfig;
 import com.pedro.netboundstar.core.model.PacketEvent;
 import com.pedro.netboundstar.core.model.Protocol;
 import com.pedro.netboundstar.view.util.DnsService;
+import com.pedro.netboundstar.view.util.FlagCache;
+import com.pedro.netboundstar.view.util.GeoService;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.Image;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -33,6 +36,9 @@ public class StarNode {
     public long totalBytes = 0;
     public String lastPorts = "N/A";
 
+    // NOVO: Imagem da bandeira (geolocalização)
+    public Image flagImage = null;
+
     // Lista de partículas ativas nesta conexão
     private final List<PacketParticle> particles = new ArrayList<>();
 
@@ -56,6 +62,12 @@ public class StarNode {
         // DISPARA A RESOLUÇÃO DE DNS ASSIM QUE NASCE
         DnsService.resolve(ip, resolvedName -> {
             this.displayName = resolvedName;
+        });
+
+        // DISPARA A GEOLOCALIZAÇÃO (NOVO)
+        GeoService.resolveCountry(ip, isoCode -> {
+            // Quando descobrir o país, carrega a imagem do cache
+            this.flagImage = FlagCache.get(isoCode);
         });
     }
 
