@@ -1,6 +1,7 @@
 package com.pedro.netboundstar.view;
 
 import com.pedro.netboundstar.core.AppConfig;
+import com.pedro.netboundstar.core.model.PacketEvent;
 import com.pedro.netboundstar.core.model.Protocol;
 import com.pedro.netboundstar.view.util.DnsService;
 import javafx.scene.canvas.GraphicsContext;
@@ -23,6 +24,14 @@ public class StarNode {
     public volatile String displayName;
 
     public double activity = 1.0;
+
+    // Estado interativo
+    public boolean isHovered = false; // Hover detection
+    public boolean isFrozen = false;  // Click to freeze/unfreeze
+
+    // Dados para tooltip
+    public long totalBytes = 0;
+    public String lastPorts = "N/A";
 
     // Lista de partículas ativas nesta conexão
     private final List<PacketParticle> particles = new ArrayList<>();
@@ -50,11 +59,20 @@ public class StarNode {
         });
     }
 
-    // Agora recebe o protocolo e a direção para criar a partícula
-    public void pulse(Protocol protocol, boolean inbound) {
+    // Agora recebe o evento inteiro para extrair informações detalhadas
+    public void pulse(PacketEvent event, boolean inbound) {
         this.activity = 1.0;
         // Adiciona uma nova partícula visual viajando na linha
-        particles.add(new PacketParticle(protocol, inbound));
+        particles.add(new PacketParticle(event.protocol(), inbound));
+
+        // Acumula dados para tooltip
+        this.totalBytes += event.payloadSize();
+        // Formata a string de portas
+        if (inbound) {
+            this.lastPorts = event.sourcePort() + " -> " + event.targetPort();
+        } else {
+            this.lastPorts = event.targetPort() + " -> " + event.sourcePort();
+        }
     }
 
     public void update() {
@@ -109,6 +127,14 @@ public class StarNode {
         // 0.90 significa que ele perde 10% da velocidade a cada frame (efeito de "atmosfera")
         this.vx *= 0.90;
         this.vy *= 0.90;
+    }
+
+    // NOVO: Método de detecção de colisão (Hit Testing) para hover/click
+    public boolean contains(double mx, double my) {
+        double dx = this.x - mx;
+        double dy = this.y - my;
+        // Raio de 12px para facilitar clicar (um pouco maior que o desenho de 6px)
+        return (dx * dx + dy * dy) < (12 * 12);
     }
 
     public boolean isDead() {

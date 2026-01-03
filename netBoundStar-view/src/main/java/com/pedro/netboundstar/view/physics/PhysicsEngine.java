@@ -36,6 +36,8 @@ public class PhysicsEngine {
         // 1. REPULSÃO (Nó contra Nó)
         // Isso é O(N^2), cuidado com muitos nós (+500 pode pesar)
         for (StarNode nodeA : nodes) {
+            if (nodeA.isFrozen) continue; // PULA NÓ CONGELADO
+
             for (StarNode nodeB : nodes) {
                 if (nodeA == nodeB) continue; // Não repelir a si mesmo
 
@@ -63,6 +65,13 @@ public class PhysicsEngine {
 
         // 2. ATRAÇÃO (Gravidade Central)
         for (StarNode node : nodes) {
+            if (node.isFrozen) {
+                // Se congelado, zera a velocidade para garantir que pare imediatamente
+                node.vx = 0;
+                node.vy = 0;
+                continue; // PULA
+            }
+
             // Vetor apontando do nó para o centro
             double dx = centerX - node.x;
             double dy = centerY - node.y;

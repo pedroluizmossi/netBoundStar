@@ -71,20 +71,28 @@ public class SnifferService implements Runnable {
             String dstIp = ipV4Packet.getHeader().getDstAddr().getHostAddress();
             int length = packet.length();
 
-            // Determina o protocolo
+            // Extraindo Portas e Protocolo
+            int srcPort = 0;
+            int dstPort = 0;
             Protocol protocol = Protocol.OTHER;
+
             if (packet.contains(TcpPacket.class)) {
+                TcpPacket tcp = packet.get(TcpPacket.class);
+                srcPort = tcp.getHeader().getSrcPort().valueAsInt();
+                dstPort = tcp.getHeader().getDstPort().valueAsInt();
                 protocol = Protocol.TCP;
             } else if (packet.contains(UdpPacket.class)) {
+                UdpPacket udp = packet.get(UdpPacket.class);
+                srcPort = udp.getHeader().getSrcPort().valueAsInt();
+                dstPort = udp.getHeader().getDstPort().valueAsInt();
                 protocol = Protocol.UDP;
             }
 
-            // Cria o evento imutável
+            // Cria o evento imutável com os novos dados
             PacketEvent event = new PacketEvent(
-                srcIp,
-                dstIp,
-                protocol,
-                length,
+                srcIp, srcPort,
+                dstIp, dstPort,
+                protocol, length,
                 Instant.now()
             );
 
