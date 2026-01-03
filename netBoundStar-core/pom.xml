@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.pedro.netboundstar</groupId>
         <artifactId>netBoundStar-parent</artifactId>
-        <version>1.0.0-SNAPSHOT</version>
+        <version>1.0.0</version>
     </parent>
 
     <artifactId>netBoundStar-core</artifactId>

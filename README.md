@@ -190,6 +190,124 @@ The `.netboundstar.config` configuration file is automatically generated in the 
 
 ---
 
+## Releasing to GitHub
+
+Follow these steps to create and publish a release on GitHub:
+
+### 1. Prepare the Release (Update Version)
+
+First, update the version in the parent `pom.xml` from `-SNAPSHOT` to a release version:
+
+```bash
+# Edit pom.xml and change version from X.X.X-SNAPSHOT to X.X.X
+# Example: 1.0.0-SNAPSHOT → 1.0.0
+vi pom.xml
+```
+
+Or use Maven Release Plugin:
+```bash
+mvn versions:set -DnewVersion=1.0.0
+mvn versions:commit
+```
+
+### 2. Build the Executable JAR
+
+```bash
+mvn clean package
+```
+
+This generates the executable JAR at: `netBoundStar-app/target/netBoundStar-app-1.0.0.jar`
+
+### 3. Commit and Tag the Release
+
+```bash
+# Commit the version change
+git add .
+git commit -m "Release version 1.0.0"
+
+# Create a Git tag for this release
+git tag -a v1.0.0 -m "Release version 1.0.0"
+
+# Push commits and tags to GitHub
+git push origin master
+git push origin v1.0.0
+```
+
+### 4. Create a GitHub Release
+
+You have two options:
+
+#### Option A: Using GitHub CLI (Recommended)
+
+```bash
+# Install GitHub CLI if not already installed
+# Then authenticate:
+gh auth login
+
+# Create a release with the JAR file
+gh release create v1.0.0 \
+  netBoundStar-app/target/netBoundStar-app-1.0.0.jar \
+  --title "NetBoundStar v1.0.0" \
+  --notes "Release notes here..."
+```
+
+#### Option B: Using GitHub Web Interface
+
+1. Go to: `https://github.com/pedroluizmossi/netBoundStar/releases`
+2. Click **"Create a new release"**
+3. Select the tag `v1.0.0`
+4. Fill in the title and description
+5. Upload the JAR file: `netBoundStar-app/target/netBoundStar-app-1.0.0.jar`
+6. Click **"Publish release"**
+
+### 5. Update Version Back to SNAPSHOT (for Next Development)
+
+After releasing, prepare the project for the next development cycle:
+
+```bash
+# Update version to next SNAPSHOT (e.g., 1.1.0-SNAPSHOT)
+mvn versions:set -DnewVersion=1.1.0-SNAPSHOT
+mvn versions:commit
+
+# Commit the change
+git add .
+git commit -m "Prepare version 1.1.0-SNAPSHOT"
+git push origin master
+```
+
+### Complete Release Workflow Example
+
+```bash
+# 1. Update version
+mvn versions:set -DnewVersion=1.0.0
+mvn versions:commit
+
+# 2. Build
+mvn clean package
+
+# 3. Commit and tag
+git add .
+git commit -m "Release version 1.0.0"
+git tag -a v1.0.0 -m "Release version 1.0.0"
+git push origin master
+git push origin v1.0.0
+
+# 4. Create release (using CLI)
+gh release create v1.0.0 \
+  netBoundStar-app/target/netBoundStar-app-1.0.0.jar \
+  --title "NetBoundStar v1.0.0" \
+  --notes "Release notes here..."
+
+# 5. Prepare next version
+mvn versions:set -DnewVersion=1.1.0-SNAPSHOT
+mvn versions:commit
+git add .
+git commit -m "Prepare version 1.1.0-SNAPSHOT"
+git push origin master
+```
+
+---
+
 ## License
 
 Distributed under the MIT License. See `LICENSE` for more information.
