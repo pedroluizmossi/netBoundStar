@@ -29,32 +29,19 @@ public class FlagCache {
             String lower = code.toLowerCase();
 
             // Tenta várias combinações (SVG tem prioridade, depois PNG)
-            Image img = tryLoadImage("/flags/" + upper + ".svg", code);
-            if (img != null) {
-                System.out.println("✓ Bandeira carregada: " + upper + ".svg");
-                return img;
-            }
+            Image img = tryLoadImage("/flags/" + upper + ".svg");
+            if (img != null) return img;
 
-            img = tryLoadImage("/flags/" + lower + ".svg", code);
-            if (img != null) {
-                System.out.println("✓ Bandeira carregada: " + lower + ".svg");
-                return img;
-            }
+            img = tryLoadImage("/flags/" + lower + ".svg");
+            if (img != null) return img;
 
-            img = tryLoadImage("/flags/" + upper + ".png", code);
-            if (img != null) {
-                System.out.println("✓ Bandeira carregada: " + upper + ".png");
-                return img;
-            }
+            img = tryLoadImage("/flags/" + upper + ".png");
+            if (img != null) return img;
 
-            img = tryLoadImage("/flags/" + lower + ".png", code);
-            if (img != null) {
-                System.out.println("✓ Bandeira carregada: " + lower + ".png");
-                return img;
-            }
+            img = tryLoadImage("/flags/" + lower + ".png");
+            if (img != null) return img;
 
-            // Nenhum encontrado (silencioso)
-            System.out.println("⚠ Bandeira não encontrada para: " + code);
+            // Nenhum encontrado (silencioso, sem mensagem de erro)
             return UNKNOWN_FLAG;
         });
     }
@@ -62,17 +49,14 @@ public class FlagCache {
     /**
      * Tenta carregar uma imagem do caminho especificado.
      */
-    private static Image tryLoadImage(String path, String code) {
+    private static Image tryLoadImage(String path) {
         try {
             InputStream is = FlagCache.class.getResourceAsStream(path);
-
             if (is != null) {
-                // Tenta carregar com preservação de SVG
-                Image img = new Image(is, 32, 32, true, true);
-                return img;
+                return new Image(is);
             }
         } catch (Exception e) {
-            System.err.println("✗ Erro ao carregar " + path + ": " + e.getMessage());
+            // Não encontrado ou erro ao carregar
         }
         return null;
     }
