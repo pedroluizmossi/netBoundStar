@@ -1,4 +1,4 @@
-# Setup Guide - Phase 9: Geolocation & Flags 🌍
+# Setup Guide Geolocation & Flags 🌍
 
 ## Manual steps you must perform:
 
@@ -35,19 +35,7 @@ netBoundStar-view/src/main/resources/geo/GeoLite2-Country.mmdb
 6. Create the folder: `netBoundStar-view/src/main/resources/flags/`
 7. Put all files there
 
-**Result (example with lowercase names):**
-```
-netBoundStar-view/src/main/resources/flags/
-├── br.svg
-├── us.svg
-├── de.svg
-├── fr.svg
-├── jp.svg
-├── ru.svg
-└── ... (as many as you want)
-```
-
-**OR with PNG:**
+**PNG:**
 ```
 netBoundStar-view/src/main/resources/flags/
 ├── br.png
@@ -57,33 +45,6 @@ netBoundStar-view/src/main/resources/flags/
 ├── jp.png
 ├── ru.png
 └── ...
-```
-
-**OR mixed:**
-```
-netBoundStar-view/src/main/resources/flags/
-├── br.svg
-├── US.png
-├── de.svg
-├── FR.svg
-├── jp.png
-└── ...
-```
-
-## Expected Final Structure:
-
-```
-netBoundStar-view/src/main/resources/
-├── geo/
-│   └── GeoLite2-Country.mmdb (optional, but recommended)
-└── flags/
-    ├── BR.svg (or BR.png)
-    ├── US.svg (or US.png)
-    ├── DE.svg (or DE.png)
-    ├── FR.svg (or FR.png)
-    ├── CN.svg (or CN.png)
-    ├── AU.svg (or AU.png)
-    └── ... (more countries)
 ```
 
 ## How the system works:
@@ -103,16 +64,3 @@ After placing the files, when you run the application:
 - If you see `⚠ WARNING: GeoLite2-Country.mmdb file not found`, put the file in the correct folder
 - Flags will appear automatically as IPs are resolved
 
-## Tips:
-
-- You do not need ALL countries - add whichever you want
-- Common flags: us, br, de, fr, gb, jp, ru, cn, au, ca
-- **SVG is preferable to PNG** (smaller size, better quality at any resolution)
-- **Case does not matter**: `br.svg`, `BR.svg`, `Br.svg` - all work!
-- The system tries SVG first, then PNG
-- The system tries uppercase first, then lowercase
-- If a country has no flag, it shows a white dot (no error)
-- The in-memory cache avoids loading the same image multiple times
-- You can mix formats: `br.svg`, `US.png`, `de.svg` (all together work!)
-
-Good luck! 🌍🚀
