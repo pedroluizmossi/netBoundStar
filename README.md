@@ -1,92 +1,70 @@
-# NetBoundStar 🌌
+# NetBoundStar
 
-**NetBoundStar** is a real-time network telemetry visualization tool. Unlike conventional packet analyzers (such as Wireshark), it transforms data traffic into an artistic visual experience based on "Constellations" — each connection is a star and each packet is a particle of energy.
+NetBoundStar is a real-time network telemetry visualization tool. It transforms network traffic into an interactive visual experience based on a star constellation metaphor, where each connection is a star and each packet is a particle of energy.
 
-## 🏛 Architecture
+Unlike traditional packet analyzers that present data in tabular formats, NetBoundStar uses a physics engine to organize network nodes dynamically, providing an intuitive view of traffic density, direction, and origin.
 
-The project follows a modular monolith pattern to keep low-level capture decoupled from high-level rendering.
+## Features
 
-### Modules
-* **`netBoundStar-core`**: The pure domain layer. Contains DTOs (`PacketEvent`) and the Event Bus (`TrafficBridge`). No external runtime dependencies.
-* **`netBoundStar-engine`**: The "Sniffer". Uses `Pcap4j` to capture network packets, filter them and publish events to the bus.
-* **`netBoundStar-view`**: (In development) The JavaFX graphics engine. Responsible for Canvas rendering and physics calculations.
-* **`netBoundStar-app`**: The orchestrator. Boots threads and wires dependencies.
+- **Real-Time Visualization**: Watch packets travel between your local machine and remote hosts instantly.
+- **Physics-Based Layout**: Nodes organize themselves using a simulation of Coulomb's Law (repulsion) and Hooke's Law (attraction), creating a harmonious, self-organizing graph.
+- **Protocol Identification**: Traffic is color-coded by protocol (TCP, UDP, ICMP).
+- **Geolocation & DNS**: Automatically resolves IP addresses to hostnames and identifies the country of origin, displaying national flags.
+- **High Performance**: Built on Java 21 using Virtual Threads for asynchronous I/O operations (DNS, GeoIP) without blocking the rendering loop.
+- **Live Statistics**: Dashboard showing download/upload speeds, total data transfer, and historical graphs.
+- **Customizable**: Adjust physics parameters, star lifespan, and visual effects in real-time via the settings menu.
 
-## 🛠 Requirements
+## Architecture
 
-* **Java 21** (LTS)
-* **Maven** 3.8+
-* **Native Packet Capture Driver:**
-  * *Windows:* [Npcap](https://npcap.com/) (Install with the "WinPcap API-compatible Mode" option).
-  * *Linux:* `libpcap-dev` (May require running with `sudo`).
-  * *MacOS:* `libpcap`.
+The project follows a modular monolith architecture to ensure separation of concerns:
 
-## 🚀 How to Run (Console Mode)
+- **netBoundStar-core**: The domain layer containing shared models (PacketEvent, Protocol), the event bus (TrafficBridge), and configuration management. It has no external runtime dependencies.
+- **netBoundStar-engine**: The packet capture layer. It uses Pcap4j to sniff network traffic, filter IPv4 packets, and publish events to the core bridge.
+- **netBoundStar-view**: The presentation layer built with JavaFX. It handles the rendering loop, particle system, physics engine, and UI components.
+- **netBoundStar-app**: The application entry point. It orchestrates the startup process, initializing the background sniffer thread and launching the graphical interface.
 
-1. Make sure Npcap / Libpcap is installed.
-2. Build the project:
+## Requirements
+
+- **Java 21** (LTS) or higher.
+- **Maven** 3.8 or higher.
+- **Packet Capture Library**:
+    - **Linux**: `libpcap-dev` (Run with `sudo` to access network devices).
+    - **Windows**: [Npcap](https://npcap.com/) (Install with "WinPcap API-compatible Mode").
+    - **macOS**: `libpcap` (Pre-installed, may require permissions).
+
+## Installation and Running
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/yourusername/netBoundStar.git
+   cd netBoundStar
+   ```
+
+2. **Build the project**:
    ```bash
    mvn clean install
    ```
 
-3. Run the Main class in the app module:
+3. **Run the application**:
 
-   **On Linux/macOS (may require sudo):**
+   **Linux / macOS**:
+   Network capture requires root privileges to access the network interface in promiscuous mode.
    ```bash
-   cd /home/pedrom/IdeaProjects/netBoundStar
    sudo mvn exec:java -Dexec.mainClass="com.pedro.netboundstar.app.Main" -pl netBoundStar-app
    ```
 
-   **On Windows (use IDE or run as Administrator):**
-   - Open IntelliJ IDEA as Administrator
-   - Run `com.pedro.netboundstar.app.Main` normally
+   **Windows**:
+   Run your IDE or terminal as Administrator, then execute the main class `com.pedro.netboundstar.app.Main`.
 
-   **Via JAR (after building):**
-   ```bash
-   sudo java -cp target/classes:$(mvn dependency:build-classpath -q -Dmdep.outputFile=/dev/stdout) com.pedro.netboundstar.app.Main
-   ```
+## Configuration
 
-> **Note:** On Linux, elevated permissions may be required to open network interfaces. If you see permission errors, try running with `sudo`.
+The application creates a configuration file (`.netboundstar.config`) in your user home directory. You can also adjust settings dynamically during runtime by clicking the **Config** button in the application window.
 
-## 📊 Data Flow
+Adjustable parameters include:
+- Star lifespan and decay rate.
+- Physics repulsion and attraction forces.
+- Particle speed and core heat sensitivity.
 
-```
-┌─────────────────┐
-│  Network NIC    │ (Network Interface)
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────────────────┐
-│   SnifferService (Thread)   │ (engine)
-│  Pcap4j → NetworkSelector   │
-└────────┬────────────────────┘
-         │ publish()
-         ▼
-┌─────────────────────────────┐
-│      TrafficBridge          │ (core - Queue)
-│   ConcurrentLinkedQueue     │
-└────────┬────────────────────┘
-         │ poll()
-         ▼
-┌─────────────────────────────┐
-│  Console/UI (Thread)        │ (app/view)
-│  Rendering or Logs          │
-└─────────────────────────────┘
-```
+## License
 
-## 🌟 Planned Features
-
-- ✅ Real-time packet capture
-- ✅ Automatic network interface detection
-- 🚧 JavaFX Canvas-based visualization
-- 🚧 Particle physics (attraction/repulsion)
-- 🚧 Glow and protocol-based coloring effects
-- 🚧 Real-time statistics (FPS, throughput)
-
-## 📝 License
-
-MIT - Feel free to use, modify and distribute.
-
----
-
-**"We are all connected."** 🌐
+This project is licensed under the MIT License.
