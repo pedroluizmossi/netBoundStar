@@ -47,7 +47,7 @@ public class StarNode {
     private Image cachedLabelImage = null;
     private String lastLabelText = "";
 
-    private final List<PacketParticle> particles = new ArrayList<>();
+    private final ArrayList<PacketParticle> particles = new ArrayList<>();
     private static final Random random = new Random();
 
     public StarNode(String ip, double centerX, double centerY) {
@@ -137,17 +137,20 @@ public class StarNode {
         
         hostLastSeen.entrySet().removeIf(entry -> (now - entry.getValue()) > expirationNanos);
 
-        // Update particles
-        Iterator<PacketParticle> it = particles.iterator();
-        while (it.hasNext()) {
-            PacketParticle p = it.next();
+        // Update particles (Zero-Allocation Loop)
+        for (int i = particles.size() - 1; i >= 0; i--) {
+            PacketParticle p = particles.get(i);
             p.update();
-            if (p.isFinished()) it.remove();
+            if (p.isFinished()) {
+                particles.remove(i);
+            }
         }
     }
 
     public void drawParticles(GraphicsContext gc, double centerX, double centerY) {
-        for (PacketParticle p : particles) {
+        // Zero-Allocation Loop
+        for (int i = 0; i < particles.size(); i++) {
+            PacketParticle p = particles.get(i);
             double startX, startY, endX, endY;
             if (p.inbound) {
                 startX = this.x; startY = this.y;

@@ -2,12 +2,12 @@ package com.pedro.netboundstar.view.physics;
 
 import com.pedro.netboundstar.core.AppConfig;
 import com.pedro.netboundstar.view.StarNode;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 
 /**
  * Optimized Physics Engine for the Node Constellation.
- * Uses parallel processing and distance thresholds to handle hundreds of nodes.
+ * Uses cached lists and indexed loops to avoid allocation during the physics step.
  */
 public class PhysicsEngine {
 
@@ -16,6 +16,9 @@ public class PhysicsEngine {
      * Beyond this, the force is too weak to matter.
      */
     private static final double REPULSION_THRESHOLD_SQ = 400 * 400;
+    
+    // Reusable list to avoid allocating a new ArrayList/Array every frame
+    private final ArrayList<StarNode> nodeList = new ArrayList<>(1000);
 
     public void update(Collection<StarNode> nodes, double centerX, double centerY) {
         AppConfig config = AppConfig.get();
@@ -23,15 +26,23 @@ public class PhysicsEngine {
         double attractionForce = config.getAttractionForce();
         double maxSpeed = config.getMaxPhysicsSpeed();
 
-        // Convert to list for indexed access or parallel stream
-        List<StarNode> nodeList = List.copyOf(nodes);
+        // 1. Refresh the working list (Reuse memory)
+        nodeList.clear();
+        nodeList.addAll(nodes);
+        
+        int size = nodeList.size();
 
-        // 1. OPTIMIZED REPULSION (Parallel Processing)
-        nodeList.parallelStream().forEach(nodeA -> {
-            if (nodeA.isFrozen) return;
+        // 2. OPTIMIZED REPULSION (Single Threaded for Zero-Allocation)
+        // Parallel streams allocate objects (Tasks, Spliterators). 
+        // For < 2000 nodes, a raw loop is often faster and generates 0 garbage.
+        for (int i = 0; i < size; i++) {
+            StarNode nodeA = nodeList.get(i);
+            if (nodeA.isFrozen) continue;
 
-            for (StarNode nodeB : nodeList) {
-                if (nodeA == nodeB) continue;
+            for (int j = 0; j < size; j++) {
+                if (i == j) continue; // Skip self
+
+                StarNode nodeB = nodeList.get(j);
 
                 double dx = nodeA.x - nodeB.x;
                 double dy = nodeA.y - nodeB.y;
@@ -48,10 +59,12 @@ public class PhysicsEngine {
                 nodeA.vx += (dx / dist) * force;
                 nodeA.vy += (dy / dist) * force;
             }
-        });
+        }
 
-        // 2. ATTRACTION AND MOVEMENT
-        for (StarNode node : nodeList) {
+        // 3. ATTRACTION AND MOVEMENT
+        for (int i = 0; i < size; i++) {
+            StarNode node = nodeList.get(i);
+
             if (node.isFrozen) {
                 node.vx = 0;
                 node.vy = 0;
